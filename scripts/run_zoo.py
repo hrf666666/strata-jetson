@@ -160,9 +160,10 @@ def convert(name, repo_or_path):
     else:
         src = WORK / "zoo" / "hf" / name
         src.mkdir(parents=True, exist_ok=True)
-        py = os.environ.get("PY310", str(Path.home() / "miniconda3/envs/py310/bin"))
-        env = dict(os.environ, HF_ENDPOINT="https://hf-mirror.com")
-        sh([py + "/hf", "download", repo_or_path, "--local-dir", src], env=env, check=True)
+        if not list(src.glob("*.safetensors")):   # already downloaded: skip the network entirely
+            py = os.environ.get("PY310", str(Path.home() / "miniconda3/envs/py310/bin"))
+            env = dict(os.environ, HF_ENDPOINT="https://hf-mirror.com")
+            sh([py + "/hf", "download", repo_or_path, "--local-dir", src], env=env, check=True)
     print(f"[{name}] converting {src} -> f16 gguf")
     r = sh([str(LLAMA / "../../_deps/strata_llamacpp-src/convert_hf_to_gguf.py").replace("/_deps", "/_deps"),
             str(src), "--outfile", out, "--outtype", "f16"])
