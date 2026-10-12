@@ -1,0 +1,17 @@
+# 模型与构建产物（不入库）
+work/
+models/
+*.gguf
+*.safetensors
+*.bin
+*.engine
+build*/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.log
+hf-cache/
+.DS_Store
+# 评测原始大文件只留摘要
+results/raw/
