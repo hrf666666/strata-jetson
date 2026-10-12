@@ -59,10 +59,14 @@ def load_arc(data_dir, n, seed):
 
 
 def ask(cli, model, prompt, max_tokens, timeout=600):
+    # chat endpoint only: Strata's server does not implement raw /v1/completions
     t0 = time.time()
-    out = cli.completions.create(model=model, prompt=prompt, max_tokens=max_tokens,
-                                 temperature=0, timeout=timeout)
-    return out.choices[0].text, time.time() - t0
+    out = cli.chat.completions.create(model=model,
+                                      messages=[{"role": "user", "content": prompt}],
+                                      max_tokens=max_tokens, temperature=0, timeout=timeout)
+    m = out.choices[0].message
+    text = (getattr(m, "content", None) or "") + "\n" + (getattr(m, "reasoning_content", None) or "")
+    return text, time.time() - t0
 
 
 def main():

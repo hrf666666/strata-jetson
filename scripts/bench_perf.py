@@ -39,7 +39,9 @@ def run_once(cli, model, prompt, gen_tokens):
         if not ev.choices:
             continue
         d = ev.choices[0].delta
-        if getattr(d, "content", None):
+        # reasoning models emit thinking via `reasoning_content` first; both count as output tokens
+        piece = getattr(d, "content", None) or getattr(d, "reasoning_content", None)
+        if piece:
             if ttft is None:
                 ttft = time.perf_counter() - t0
             n_out += 1
@@ -67,7 +69,9 @@ def main():
         n_in = len(prompt) // 4  # approx; exact count read from final usage if provided
         rows = []
         for r in range(args.repeats):
-            ttft, total, n_out = run_once(cli, args.model, prompt, args.gen_tokens)
+            # unique suffix per repeat so a server-side prompt cache cannot fake the TTFT
+            p = f"{prompt}\n\n(variant {r}-{int(time.time())})"
+            ttft, total, n_out = run_once(cli, args.model, p, args.gen_tokens)
             rows.append({"bucket_tokens": b, "repeat": r, "ttft_s": ttft, "total_s": total,
                          "gen_tokens": n_out, "prompt_tokens_approx": n_in,
                          "prefill_tps": n_in / ttft if ttft else None,

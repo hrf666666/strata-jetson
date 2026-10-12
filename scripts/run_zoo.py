@@ -77,16 +77,31 @@ def sh(cmd, **kw):
     return subprocess.run(list(map(str, cmd)), **kw)
 
 
+def _curl_json(url, tries=5):
+    # the mirror's TLS drops connections sporadically: retry through curl, which rode out the flakiness
+    # during the big download far better than one-shot urllib.
+    import subprocess, time as _t
+    for i in range(tries):
+        r = subprocess.run(["curl", "-s", "-m", "25", url], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip().startswith("{"):
+            try:
+                return json.loads(r.stdout)
+            except json.JSONDecodeError:
+                pass
+        _t.sleep(4 * (i + 1))
+    raise RuntimeError(f"curl list failed after {tries}: {url[:80]}")
+
+
 def ms_files(repo):
-    import urllib.request
-    with urllib.request.urlopen(MS_LIST.format(repo=repo), timeout=15) as r:
-        return [f["Path"] for f in json.load(r)["Data"]["Files"]]
+    d = _curl_json(MS_LIST.format(repo=repo))
+    if d.get("Success") is False or "Files" not in d.get("Data", {}):
+        raise RuntimeError(d.get("Message", "no Files"))
+    return [f["Path"] for f in d["Data"]["Files"]]
 
 
 def hf_files(repo):
-    import urllib.request
-    with urllib.request.urlopen(f"https://hf-mirror.com/api/models/{repo}", timeout=15) as r:
-        return [s["rfilename"] for s in json.load(r).get("siblings", [])]
+    d = _curl_json(f"https://hf-mirror.com/api/models/{repo}")
+    return [s["rfilename"] for s in d.get("siblings", [])]
 
 
 def find_gguf(repo_list, want="Q4_K_M"):
@@ -124,7 +139,7 @@ def fetch(name):
         print(f"[{name}] {src}: {repo}/{f}")
         r = sh(["aria2c", "-x8", "-s8", "-k1M", "--file-allocation=none",
                 "--console-log-level=warn", "--summary-interval=0",
-                "--max-tries=8", "--retry-wait=10", "--dir", GGUF_DIR, "-o", local.name, url])
+                "--max-tries=0", "--retry-wait=10", "--dir", GGUF_DIR, "-o", local.name, url])
         if r.returncode == 0:
             return local
     # fallback: convert from safetensors
