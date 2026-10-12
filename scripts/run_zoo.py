@@ -165,12 +165,8 @@ def convert(name, repo_or_path):
             env = dict(os.environ, HF_ENDPOINT="https://hf-mirror.com")
             sh([py + "/hf", "download", repo_or_path, "--local-dir", src], env=env, check=True)
     print(f"[{name}] converting {src} -> f16 gguf")
-    r = sh([str(LLAMA / "../../_deps/strata_llamacpp-src/convert_hf_to_gguf.py").replace("/_deps", "/_deps"),
-            str(src), "--outfile", out, "--outtype", "f16"])
-    if r.returncode != 0:
-        conv = GGUF_DIR / "llama.cpp-convert"
-        sh(["python3", str(WORK / "Strata/build/_deps/strata_llamacpp-src/convert_hf_to_gguf.py"),
-            str(src), "--outfile", out, "--outtype", "f16"])
+    conv_script = WORK / "Strata/build/_deps/strata_llamacpp-src/convert_hf_to_gguf.py"
+    sh(["python3", str(conv_script), str(src), "--outfile", out, "--outtype", "f16"])
     q4 = GGUF_DIR / f"{name}.gguf"
     sh([str(LLAMA / "llama-quantize"), str(out), q4, "Q4_K_M"])
     if out.exists() and q4.exists():
