@@ -9,7 +9,7 @@ Usage:
   bench_quality.py --base-url http://127.0.0.1:8080/v1 --model strata \
       --data work/data --n 100 --out results/raw/quality_<tag>.json
 """
-import argparse, json, random, re, time
+import argparse, json, os, random, re, time
 from openai import OpenAI
 
 GSM8K_SHOTS = [
@@ -137,7 +137,6 @@ def main():
             print(f"arc {i+1}: acc={correct}/{i+1}")
     res["arc_acc"] = correct / max(1, len(res["arc"]))
 
-    import os
     os.makedirs(os.path.dirname(outp), exist_ok=True)
     with open(outp, "w") as f:
         json.dump(res, f, indent=1)
