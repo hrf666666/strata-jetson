@@ -1,7 +1,7 @@
 From 1c1d326d8d24d76b6585da83c3d8be14e06ed31c Mon Sep 17 00:00:00 2001
 From: strata-jetson-port <strata-jetson@local>
 Date: Mon, 12 Oct 2026 21:42:00 +0800
-Subject: [PATCH 2/2] port(aarch64): link-stage stubs, CPUID probe guards,
+Subject: [PATCH 2/3] port(aarch64): link-stage stubs, CPUID probe guards,
  x86-only parity targets gated
 
 ---

@@ -1,0 +1,18 @@
+#!/bin/bash
+# strata-jetson shim: L4T's nvidia-smi reports memory.total as [N/A] on Orin,
+# which breaks CSV parsers (Strata's setup.py). Substitute the real unified-memory
+# size for that one field; pass everything else to the stock tool.
+REAL=/usr/sbin/nvidia-smi
+case "$*" in
+  *"--query-gpu=index,name,memory.total,compute_cap,driver_version"*)
+    out="$("$REAL" "$@" 2>/dev/null)"
+    if echo "$out" | grep -q "N/A"; then
+      mem=$("$REAL" --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null)
+      if [ -z "$mem" ] || echo "$mem" | grep -q "N/A"; then mem=15655; fi
+      echo "$out" | sed "s/\[N\/A\]/$mem/g"
+    else
+      echo "$out"
+    fi ;;
+  *)
+    exec "$REAL" "$@" ;;
+esac

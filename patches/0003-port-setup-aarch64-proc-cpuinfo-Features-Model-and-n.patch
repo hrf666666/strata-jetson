@@ -1,0 +1,41 @@
+From 36b0de8d8251ad8ea84193fa7224ebf838f51f3c Mon Sep 17 00:00:00 2001
+From: strata-jetson-port <strata-jetson@local>
+Date: Tue, 13 Oct 2026 01:04:14 +0800
+Subject: [PATCH 3/3] port(setup): aarch64 /proc/cpuinfo (Features/Model) and
+ no ISA floor on ARM
+
+---
+ setup.py | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/setup.py b/setup.py
+index 7dab3b8..aeb878e 100644
+--- a/setup.py
++++ b/setup.py
+@@ -717,7 +717,13 @@ def cpu_info():
+     else:
+         try:
+             txt = open("/proc/cpuinfo").read()
+-            flags = set(re.search(r"^flags\s*:\s*(.*)$", txt, re.M).group(1).split())
++            # strata-jetson port: ARM /proc/cpuinfo has "Features"/"Model", not x86 "flags"/"model name".
++            mflags = re.search(r"^flags\s*:\s*(.*)$", txt, re.M)
++            if mflags is None and (platform.machine() == "aarch64" or re.search(r"^Features\s*:", txt, re.M)):
++                m = re.search(r"^Model\s*:\s*(.*)$", txt, re.M) or re.search(r"^Hardware\s*:\s*(.*)$", txt, re.M)
++                name = (m.group(1).strip() if m else name) + " (aarch64)"
++                return name, False, False
++            flags = set(mflags.group(1).split())
+             avx2 = "avx2" in flags
+             avx512 = {"avx512f", "avx512bw", "avx512vl", "avx512_vnni", "avx512vbmi"} <= flags
+             m = re.search(r"^model name\s*:\s*(.*)$", txt, re.M)
+@@ -757,6 +763,8 @@ def cpu_floor(avx2: bool) -> str:
+         return forced
+     if avx2:
+         return ""
++    if platform.machine() == "aarch64":
++        return ""   # strata-jetson port: the older-CPU floor is an x86 concept
+     if WIN:
+         f = _cpuid_floor()
+     else:
+-- 
+2.34.1
+
