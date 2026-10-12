@@ -1,0 +1,875 @@
+From 7301ca05ba28aa2d83926c6538b07e5ea4e38e85 Mon Sep 17 00:00:00 2001
+From: strata-jetson-port <strata-jetson@local>
+Date: Mon, 12 Oct 2026 21:19:10 +0800
+Subject: [PATCH 1/2] port(aarch64): NEON Q2_0 expert kernel + ISA shims for
+ Jetson (Orin NX, sm_87)
+
+- include/strata/portability.hpp: _mm_pause/_mm_sfence shims (__yield / dmb ishst)
+- graph.cpp, verify.cpp, pool.cpp: portability shims instead of raw immintrin
+- expert.cpp: Q2_0 CPU expert kernel gains an aarch64 NEON (+dotprod) path;
+  x86 AVX2/AVX-512 paths preserved verbatim behind STRATA_X86
+- expert_layout.cpp: CPUID probes return false on ARM; CpuFeatures gates on
+  HWCAP ASIMDDP; q2_rows_any/act_quant_any dispatch to the NEON kernel
+- CMakeLists.txt: x86-only kernel files excluded on aarch64; expert.cpp
+  compiled with -march=armv8.2-a+dotprod
+---
+ CMakeLists.txt                    |  26 ++-
+ include/strata/portability.hpp    |  35 ++++
+ src/core/graph.cpp                |   4 +-
+ src/core/verify.cpp               |  32 ++--
+ src/kernels/cpu/expert.cpp        | 300 +++++++++++++++++++++++++-----
+ src/kernels/cpu/expert_layout.cpp |  53 +++++-
+ src/kernels/cpu/pool.cpp          |  10 +-
+ 7 files changed, 383 insertions(+), 77 deletions(-)
+ create mode 100644 include/strata/portability.hpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index de94fcd..4d81121 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1157,11 +1157,20 @@ if(STRATA_BUILD_TESTS OR STRATA_BUILD_CONVERSATION_TESTS)
+   add_test(NAME batch_groups_test COMMAND batch_groups_test)
+ endif()
+ 
+-add_library(strata_kernels_cpu STATIC src/kernels/cpu/expert.cpp src/kernels/cpu/pool.cpp
+-            src/kernels/cpu/expert_layout.cpp src/kernels/cpu/q2_avx2.cpp)
++# strata-jetson port: q2_avx2.cpp is x86-only; on aarch64 expert.cpp carries the NEON Q2_0 kernel.
++if(CMAKE_SYSTEM_PROCESSOR MATCHES "(aarch64|arm64|ARM64)")
++  add_library(strata_kernels_cpu STATIC src/kernels/cpu/expert.cpp src/kernels/cpu/pool.cpp
++              src/kernels/cpu/expert_layout.cpp)
++  set_source_files_properties(src/kernels/cpu/expert.cpp PROPERTIES COMPILE_OPTIONS "-march=armv8.2-a+dotprod")
++else()
++  add_library(strata_kernels_cpu STATIC src/kernels/cpu/expert.cpp src/kernels/cpu/pool.cpp
++              src/kernels/cpu/expert_layout.cpp src/kernels/cpu/q2_avx2.cpp)
++endif()
+ target_include_directories(strata_kernels_cpu PUBLIC include)
+ # Plan v0.3 P6: only the kernel files get the AVX-512 / AVX2 flags; the pool and the probe run on any x86-64,
+ # and the engine picks the kernels at run time (cpu_avx512_ok).
++# strata-jetson port: skipped on aarch64, where expert.cpp is compiled with +dotprod instead (above).
++if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "(aarch64|arm64|ARM64)")
+ if(MSVC)
+   set_source_files_properties(src/kernels/cpu/expert.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX512")
+   set_source_files_properties(src/kernels/cpu/q2_avx2.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
+@@ -1171,6 +1180,7 @@ else()
+                               PROPERTIES COMPILE_OPTIONS "-mavx512f;-mavx512bw;-mavx512vl;-mavx512dq;-mavx512vnni;-mavx512vbmi;-mf16c;-mfma")
+   set_source_files_properties(src/kernels/cpu/q2_avx2.cpp PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma;-mf16c")
+ endif()
++endif()  # strata-jetson port: end of the x86-only per-file flag block
+ # AVX-VNNI (Alder Lake, Sapphire Rapids and later): the AVX-2 expert kernels' vpdpwssd / vpdpbusd copies (q2_avx2.cpp,
+ # iq_avx2.cpp; *_rows.inl), taken at run time where cpu_avxvnni_ok().  GCC and Clang compile only those functions with
+ # target("avxvnni") - never -mavxvnni on a file, which would let the compiler use it anywhere - and MSVC takes the
+@@ -1264,9 +1274,15 @@ if(STRATA_NATIVE_EXPERTS)
+   endif()
+   # part of strata_kernels_cpu (the pool calls these and they call its CPU probe: one library, so GNU ld's
+   # one-pass static linking has no cycle to resolve)
+-  target_sources(strata_kernels_cpu PRIVATE src/kernels/cpu/native_expert.cpp src/kernels/cpu/iq_avx512.cpp
+-                                           src/kernels/cpu/iq_avx2.cpp src/kernels/cpu/kq_avx2.cpp
+-                                           src/kernels/cpu/kq_avx1.cpp src/kernels/cpu/q2_avx1.cpp src/kernels/cpu/iq_avx1.cpp)
++  # strata-jetson port: on aarch64 only the ggml bridge builds - the iq/kq/q2 files are x86 intrinsics, and
++  # ggml-cpu's own NEON quant kernels serve the native (IQ) experts instead.
++  if(CMAKE_SYSTEM_PROCESSOR MATCHES "(aarch64|arm64|ARM64)")
++    target_sources(strata_kernels_cpu PRIVATE src/kernels/cpu/native_expert.cpp)
++  else()
++    target_sources(strata_kernels_cpu PRIVATE src/kernels/cpu/native_expert.cpp src/kernels/cpu/iq_avx512.cpp
++                                             src/kernels/cpu/iq_avx2.cpp src/kernels/cpu/kq_avx2.cpp
++                                             src/kernels/cpu/kq_avx1.cpp src/kernels/cpu/q2_avx1.cpp src/kernels/cpu/iq_avx1.cpp)
++  endif()
+   target_include_directories(strata_kernels_cpu PRIVATE third_party/ggml)
+   if(MSVC)
+     set_source_files_properties(src/kernels/cpu/iq_avx512.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX512")
+diff --git a/include/strata/portability.hpp b/include/strata/portability.hpp
+new file mode 100644
+index 0000000..25fce12
+--- /dev/null
++++ b/include/strata/portability.hpp
+@@ -0,0 +1,35 @@
++// strata-jetson port: minimal ISA portability shims.
++//
++// Upstream Strata targets x86-64 (AVX2 floor) plus CUDA.  This header gives the few
++// non-vector x86 helpers the engine core uses (_mm_pause spin hints, _mm_sfence store
++// fences) aarch64 equivalents so the core compiles unmodified on Jetson (ARMv8.2-A).
++// Vector kernels live in their own files and keep dedicated arch paths.
++#pragma once
++
++#if defined(_MSC_VER) && !defined(__clang__)
++#define STRATA_X86 1
++#include <intrin.h>
++#include <immintrin.h>
++#define STRATA_PAUSE() _mm_pause()
++#define STRATA_SFENCE() _mm_sfence()
++#elif defined(__x86_64__) || defined(__i386__)
++#define STRATA_X86 1
++#include <immintrin.h>
++#define STRATA_PAUSE() _mm_pause()
++#define STRATA_SFENCE() _mm_sfence()
++#elif defined(__aarch64__)
++#define STRATA_ARM64 1
++#include <arm_acle.h>
++// yield: ARM's PAUSE equivalent (-encoded hint; low power draw while spinning).
++#define STRATA_PAUSE() __yield()
++// sfence: release-style store barrier; "dmb ishst" orders stores only, which is all
++// the call sites rely on (flushing packed results to shared/pinned memory).
++#define STRATA_SFENCE() __dmb(__ARM_ISHST)
++#else
++#define STRATA_PAUSE() \
++    do {               \
++    } while (0)
++#define STRATA_SFENCE() \
++    do {                \
++    } while (0)
++#endif
+diff --git a/src/core/graph.cpp b/src/core/graph.cpp
+index 2e9c7e7..db1b62e 100644
+--- a/src/core/graph.cpp
++++ b/src/core/graph.cpp
+@@ -1,7 +1,7 @@
+ // src/core/graph.cpp - P2.S5: the GraphRegistry implementation.
+ #include "strata/core/graph.hpp"
+ 
+-#include <immintrin.h>
++#include "strata/portability.hpp"
+ 
+ #include <chrono>
+ #include <cstdio>
+@@ -97,7 +97,7 @@ bool CapturedGraph::wait_ms(int timeout_ms) const {
+         if (q == cudaSuccess) return true;
+         if (q != cudaErrorNotReady) return false;   // a real error, not "not finished"
+         if (std::chrono::steady_clock::now() >= deadline) return false;
+-        for (int i = 0; i < 64; ++i) _mm_pause();
++        for (int i = 0; i < 64; ++i) STRATA_PAUSE();
+     }
+ }
+ 
+diff --git a/src/core/verify.cpp b/src/core/verify.cpp
+index df61724..2916f8c 100644
+--- a/src/core/verify.cpp
++++ b/src/core/verify.cpp
+@@ -58,7 +58,7 @@
+ #include <cstdlib>
+ #include <cstring>
+ #include <exception>
+-#include <immintrin.h>
++#include "strata/portability.hpp"
+ 
+ namespace strata::core {
+ namespace {
+@@ -387,7 +387,7 @@ bool Verifier::release_gpu_waits(int timeout_ms) {
+     for (uint32_t* p : {h_flag_, h_flagA_, h_flagB_})
+         if (p != nullptr) *(volatile uint32_t*) p = UINT32_MAX;
+     std::atomic_thread_fence(std::memory_order_seq_cst);
+-    _mm_sfence();
++    STRATA_SFENCE();
+     const OnDevice on_device(device_);
+     const Clock::time_point t0 = Clock::now();
+     for (cudaStream_t s : {cs_, copy_}) {
+@@ -2121,7 +2121,7 @@ bool Verifier::adapt_gate_wait(int32_t layer, std::string& err) {
+     const Clock::time_point t0 = Clock::now();
+     uint32_t spins = 0;
+     while (adapt_gate_->landed.load(std::memory_order_acquire) < layer) {
+-        _mm_pause();
++        STRATA_PAUSE();
+         if ((++spins & 1023u) != 0) continue;
+         if (Clock::now() - t0 > std::chrono::seconds(20)) {
+             err = "verify: the adaptive tier's copies for layer " + std::to_string(layer) + " never landed" +
+@@ -2185,7 +2185,7 @@ bool Verifier::run(int T, const int32_t* tokens, int64_t pos0, PoolMultiFn pool,
+             const Clock::time_point tp = Clock::now();
+             if (!ss.ple.table->gather_batch(ple_rows, (size_t) T, h_ple_, err)) return false;
+             std::atomic_thread_fence(std::memory_order_seq_cst);
+-            _mm_sfence();
++            STRATA_SFENCE();
+             *flag = 1;
+             ms_host += ms_since(tp);
+         } else {
+@@ -2201,7 +2201,7 @@ bool Verifier::run(int T, const int32_t* tokens, int64_t pos0, PoolMultiFn pool,
+         uint32_t spins = 0;
+         progress_at("verify window: waiting for the GPU to reach layer", l);
+         while (*seq < want) {
+-            _mm_pause();
++            STRATA_PAUSE();
+             if ((++spins & 1023u) != 0) continue;
+             const auto now = Clock::now();
+             if (now - last_flush > std::chrono::microseconds(2000)) {
+@@ -2249,7 +2249,7 @@ bool Verifier::run(int T, const int32_t* tokens, int64_t pos0, PoolMultiFn pool,
+                               (int64_t) ms_since(b));   // aux: ms the CPU experts took
+         progress_tick();
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         if (*(volatile uint32_t*) h_flagA_ != want) {        // the pool did not publish a plan: an empty one
+             sink_.counts[0] = 0;
+             sink_.counts[1] = 0;
+@@ -2268,7 +2268,7 @@ bool Verifier::run(int T, const int32_t* tokens, int64_t pos0, PoolMultiFn pool,
+             const Clock::time_point tp = Clock::now();
+             if (!ss.ple.table->gather_batch(ple_rows, (size_t) T, h_ple_, err)) return false;
+             std::atomic_thread_fence(std::memory_order_seq_cst);
+-            _mm_sfence();
++            STRATA_SFENCE();
+             ms_host += ms_since(tp);
+         }
+         if (!(test_stall && k + 1 == steps)) *flag = want;
+@@ -2431,7 +2431,7 @@ void Verifier::fetch_dma(void* ctx, const uint8_t* const* src, int n, size_t byt
+ 
+ void Verifier::publish_plan(void* ctx) {
+     Verifier* v = (Verifier*) ctx;
+-    _mm_sfence();
++    STRATA_SFENCE();
+     *(volatile uint32_t*) v->h_flagA_ = v->cur_layer_ + 1;
+ }
+ 
+@@ -2863,7 +2863,7 @@ bool Verifier::run_slot_rows(const int* rows, int S, const int32_t* tokens, cons
+     if (ar_on()) {
+         if (ss_->ple.ready() && ple_stage()) {
+             std::atomic_thread_fence(std::memory_order_seq_cst);
+-            _mm_sfence();
++            STRATA_SFENCE();
+             *flag = 1;
+         }
+         const cudaError_t se = cudaStreamSynchronize(cs_);
+@@ -2887,7 +2887,7 @@ bool Verifier::run_slot_rows(const int* rows, int S, const int32_t* tokens, cons
+         uint32_t spins = 0;
+         progress_at("verify batch: waiting for the GPU to reach layer", l);
+         while (*seq < want) {
+-            _mm_pause();
++            STRATA_PAUSE();
+             if ((++spins & 1023u) != 0) continue;
+             const auto now = Clock::now();
+             if (now - last_flush > std::chrono::microseconds(2000)) {
+@@ -2915,7 +2915,7 @@ bool Verifier::run_slot_rows(const int* rows, int S, const int32_t* tokens, cons
+         if (remote_opt_) remote_opt_->end();
+         progress_tick();
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         if (*(volatile uint32_t*) h_flagA_ != want) {        // the pool did not publish a plan: an empty one
+             sink_.counts[0] = 0;
+             sink_.counts[1] = 0;
+@@ -3039,7 +3039,7 @@ int Verifier::batch_poll(PoolMultiFn pool, void* user, std::string& err) {
+     // doorbell graph needs the per-layer service below.
+     if (ar_on() && ss_->ple.ready() && ple_stage()) {
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         *h_flag_ = 1;
+     }
+     while (!ar_on() && b_k_ < b_steps_) {
+@@ -3070,7 +3070,7 @@ int Verifier::batch_poll(PoolMultiFn pool, void* user, std::string& err) {
+         if (remote_opt_) remote_opt_->end();
+         progress_tick();
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         if (*(volatile uint32_t*) h_flagA_ != want) {        // the pool did not publish a plan: an empty one
+             sink_.counts[0] = 0;
+             sink_.counts[1] = 0;
+@@ -3300,7 +3300,7 @@ int Verifier::service(PoolMultiFn pool, void* user, std::string& err) {
+         const Clock::time_point tp = Clock::now();
+         if (!ss.ple.table->gather_batch(pl_ple_rows_.data(), (size_t) T, h_ple_, err)) return false;
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         ms_host += ms_since(tp);
+         return true;
+     };
+@@ -3351,7 +3351,7 @@ int Verifier::service(PoolMultiFn pool, void* user, std::string& err) {
+                               (int64_t) ms_since(b));
+         progress_tick();
+         std::atomic_thread_fence(std::memory_order_seq_cst);
+-        _mm_sfence();
++        STRATA_SFENCE();
+         if (*(volatile uint32_t*) h_flagA_ != want) {        // the pool did not publish a plan: an empty one
+             sink_.counts[0] = 0;
+             sink_.counts[1] = 0;
+@@ -3425,7 +3425,7 @@ bool Verifier::pl_commit_async(int n_keep, std::string& err) {
+     const Clock::time_point t0 = Clock::now();
+     if (commit_live_) {   // its graph reads the words below when it starts: the previous one has (a window ago)
+         cudaError_t q;
+-        while ((q = cudaEventQuery(ev_commit_)) == cudaErrorNotReady) _mm_pause();
++        while ((q = cudaEventQuery(ev_commit_)) == cudaErrorNotReady) STRATA_PAUSE();
+         if (q != cudaSuccess) { err = std::string("verify: commit: ") + cudaGetErrorString(q); return false; }
+     }
+     h_commit_[0] = n_keep;
+diff --git a/src/kernels/cpu/expert.cpp b/src/kernels/cpu/expert.cpp
+index 2436bbc..a58f57b 100644
+--- a/src/kernels/cpu/expert.cpp
++++ b/src/kernels/cpu/expert.cpp
+@@ -3,14 +3,23 @@
+ // The body is the validated kernel, moved rather than rewritten: it carries the P0.T2 parity result
+ // (rel 1.461e-06 against the ggml formula) and the three performance findings recorded in
+ // include/strata/kernels/cpu/expert.hpp.  Read that header first; it says why each piece is shaped this way.
++//
++// strata-jetson port: the x86 (AVX2/AVX-512) paths are preserved verbatim under STRATA_X86; an aarch64
++// NEON (+dotprod) implementation of the same contracts lives under STRATA_ARM64.  The activation
++// quantizer and the row dot keep the x86 kernel's element order so outputs match within FP32
++// evaluation-order noise; per-lane sums are exact integers in both ISAs (VNNI / vdotq_s32).
+ #include "strata/kernels/cpu/expert.hpp"
+ 
++#include "strata/portability.hpp"
++
++#if defined(STRATA_X86)
+ #include <immintrin.h>
+ #if defined(_MSC_VER)
+ #include <intrin.h>
+ #else
+ #include <cpuid.h>
+ #endif
++#endif
+ 
+ #include <cmath>
+ #include <atomic>
+@@ -18,6 +27,10 @@
+ #include <cstdlib>
+ #include <cstring>
+ 
++#if defined(STRATA_ARM64)
++#include <arm_neon.h>
++#endif
++
+ namespace strata::kernels::cpu {
+ namespace {
+ 
+@@ -47,6 +60,33 @@ inline float h2f(const uint8_t* p) {
+     return out;
+ }
+ 
++#if defined(STRATA_ARM64)
++/// f32 -> f16, round to nearest even (the MXCSR-default rounding `_mm_cvtps_ph` uses on x86).
++inline uint16_t f2h(float v) {
++    uint32_t x;
++    std::memcpy(&x, &v, 4);
++    const uint32_t sign = (x >> 16) & 0x8000u;
++    const int32_t exp = int32_t((x >> 23) & 0xFFu) - 127 + 15;
++    const uint32_t man = x & 0x7FFFFFu;
++    if (((x >> 23) & 0xFFu) == 0xFF) return uint16_t(sign | 0x7C00u | (man ? 0x200u : 0));  // inf / nan (coarse)
++    if (exp >= 0x1F) return uint16_t(sign | 0x7C00u);                                       // overflow -> inf
++    if (exp <= 0) {                                                                         // subnormal / zero
++        if (exp < -10) return uint16_t(sign);
++        const uint32_t m = man | 0x800000u;
++        const int shift = uint32_t(1 - exp) + 13 >= 32 ? 31 : (1 - exp) + 13;
++        uint32_t half = m >> shift;
++        const uint32_t rem = m << (32 - shift);
++        if ((rem > 0x80000000u) || (rem == 0x80000000u && (half & 1u))) ++half;             // nearest even
++        return uint16_t(sign | half);
++    }
++    uint32_t half = uint32_t(exp << 10) | (man >> 13);
++    const uint32_t rem = (man << 19);
++    if ((rem > 0x80000000u) || (rem == 0x80000000u && (half & 1u))) ++half;                 // nearest even
++    return uint16_t(sign | half);
++}
++#endif
++
++#if defined(STRATA_X86)
+ // The x86 Q8_0 quantization and generic Q2_0 dot sequences are adapted from llama.cpp
+ // 3cf03257f219afbe7334045ff7c6a06ac68c627d,
+ // ggml/src/ggml-cpu/arch/x86/quants.c: quantize_row_q8_0 and
+@@ -117,7 +157,6 @@ void quantize_oracle_q8_0(const float* x, int n, ActQ& a) {
+ /// passes the shift pattern first, which is correct - so a "fix" that swapped it to match the guide was the
+ /// bug, not the fix.  Within each 64-bit lane, output byte i is `(u16 >> 2i) & 0xFF`, so AND 3 yields the
+ /// eight 2-bit codes in order.
+-///
+ /// The result is the 32 codes of ONE ACTIVATION CHUNK (4 qword lanes), which is the unit the Q8_1 scale is
+ /// defined on - not the 64-weight block.
+ inline __m256i unpack_q2_0(const uint8_t* codes) {
+@@ -141,13 +180,13 @@ inline float hsum_ps(__m256 v) {
+ 
+ // ================================ plan v0.3 P6: the row dot in 512-bit lanes ================================
+ //
+-// The 256-bit row dot below spent ~12 cycles per 64-weight block: two unpacks, two VNNI dots, two converts, two
+-// scalar scale products broadcast into two FMAs, an fp16 conversion and a scalar correction - compute-bound at
+-// ~39 GB/s while the machine streams 52.  Here a block is ONE unpack (16 code bytes -> 64 codes), ONE VNNI dot
+-// over 64 activations, ONE convert and ONE FMA whose per-chunk scales come from a permute of a vector of scale
+-// products built for eight blocks at a time; the weight-independent correction is one FMA per eight blocks.
+-// The sum order differs from the 256-bit kernel (last-bit differences); the verify window and plain decode both
+-// use this kernel, so speculative decode still reproduces plain decode exactly.
++// The 256-bit row dot below spent ~12 cycles per 64-weight block: two unpacks, two VNNI dots, two converts,
++// two scalar scale products broadcast into two FMAs, an fp16 conversion and a scalar correction - compute-bound
++// at ~39 GB/s while the machine streams 52.  Here a block is ONE unpack (16 code bytes -> 64 codes), ONE VNNI
++// dot over 64 activations, ONE convert and ONE FMA whose per-chunk scales come from a permute of a vector of
++// scale products built for eight blocks at a time; the weight-independent correction is one FMA per eight
++// blocks.  The sum order differs from the 256-bit kernel (last-bit differences); the verify window and plain
++// decode both use this kernel, so speculative decode still reproduces plain decode exactly.
+ static const bool kZmm = std::getenv("STRATA_CPU_YMM") == nullptr;
+ 
+ inline __m512i unpack64_q2_0(const uint8_t* codes) {
+@@ -218,32 +257,6 @@ inline void row_dot_multi_z(const uint8_t* codes, const uint8_t* scales, const A
+     for (int t = 0; t < NT; ++t) res[t] = _mm512_reduce_add_ps(acc[t]) - _mm512_reduce_add_ps(corr[t]);
+ }
+ 
+-/// One weight row against a quantized activation.
+-///
+-///     sum_j (c_j - 1) d_w xhat_j d_x  ==  d_w * ( d_x*sum(c*xhat) - d_x*sum(xhat) )
+-///
+-/// split per 32-chunk because `d_x` changes at the chunk boundary while `d_w` does not.
+-///
+-/// The accumulator stays a FLOAT VECTOR for the whole row and is reduced once at the end.  Reducing per
+-/// 64-weight block (two 8-lane horizontal sums: a store plus 16 scalar adds) cost far more than the dot
+-/// products themselves - it made the kernel compute-bound at 21 GB/s instead of DRAM-bound at 32.
+-inline float row_dot(const uint8_t* codes, const uint8_t* scales, const ActQ& a, int nblocks) {
+-    if (kZmm) return row_dot_z(codes, scales, a, nblocks);
+-    __m256 acc = _mm256_setzero_ps();
+-    // The -sum(xhat) term is a SCALAR: broadcasting it into all 8 lanes and letting hsum_ps add them would
+-    // apply it eight times per block.
+-    float corr = 0.f;
+-    for (int b = 0; b < nblocks; ++b) {
+-        const float d = h2f(scales + 2 * b);
+-        const __m256 slo = _mm256_cvtepi32_ps(block_dot(codes + b * 16, a.q + b * QK));
+-        const __m256 shi = _mm256_cvtepi32_ps(block_dot(codes + b * 16 + 8, a.q + b * QK + QKA));
+-        acc = _mm256_fmadd_ps(_mm256_set1_ps(d * a.scale[2 * b]), slo, acc);
+-        acc = _mm256_fmadd_ps(_mm256_set1_ps(d * a.scale[2 * b + 1]), shi, acc);
+-        corr += d * (a.hx[2 * b] + a.hx[2 * b + 1]);
+-    }
+-    return hsum_ps(acc) - corr;
+-}
+-
+ // VNNI's integer partial sums are exact. Remove the Q2_0 code offset BEFORE
+ // conversion to float, then follow the pinned generic CPU dot's two-chunk and
+ // per-64-block reduction. Its x86 type trait selects this generic reduction even
+@@ -269,33 +282,146 @@ inline float row_dot_oracle(const uint8_t* codes, const uint8_t* scales, const A
+     }
+     return result;
+ }
++#endif  // STRATA_X86
++
++#if defined(STRATA_ARM64)
++/// NEON Q8_0 activation quantization for the oracle contract - same element rules as the x86 intrinsic
++/// version (d = amax/127 stored as fp16, round-half-away-from-zero via the +0.5 trick, clamp +-127).
++void quantize_oracle_q8_0(const float* x, int n, ActQ& a) {
++    a.nchunks = n / QKA;
++    for (int chunk = 0; chunk < a.nchunks; ++chunk) {
++        const float* xb = x + chunk * QKA;
++        float32x4_t m0 = vabsq_f32(vld1q_f32(xb));
++        float32x4_t m1 = vabsq_f32(vld1q_f32(xb + 8));
++        float32x4_t m2 = vabsq_f32(vld1q_f32(xb + 16));
++        float32x4_t m3 = vabsq_f32(vld1q_f32(xb + 24));
++        float32x4_t m = vmaxq_f32(vmaxq_f32(m0, m1), vmaxq_f32(m2, m3));
++        const float amax = vmaxvq_f32(m);
++        const float d = amax / 127.0f;
++        const uint16_t half_d = f2h(d);
++        const float inv = amax != 0.0f ? 127.0f / amax : 0.0f;
++        int32_t sum = 0;
++        int8_t* q = a.q + chunk * QKA;
++        // debug-only oracle path: plain scalar is plenty
++        for (int j = 0; j < QKA; ++j) {
++            const float t = xb[j] * inv;
++            const float r = t + (t >= 0.f ? 0.5f : -0.5f);  // round half AWAY FROM ZERO
++            int v = (int) r;
++            v = v < -127 ? -127 : (v > 127 ? 127 : v);
++            q[j] = (int8_t) v;
++        }
++        for (int j = 0; j < QKA; ++j) sum += q[j];
++        a.scale[chunk] = h2f((const uint8_t*) &half_d);
++        a.sum[chunk] = sum;
++        a.hx[chunk] = a.scale[chunk] * float(sum);
++    }
++}
++
++/// Expand 8 bytes (32 2-bit codes, LSB-first within each byte: code j = (byte[j>>2] >> 2*(j&3)) & 3)
++/// into 32 int8 lanes in the same sequential order the x86 unpack produces.
++inline int8x16_t unpack32_q2_0(const uint8_t* codes, int8x16_t* hi_out) {
++    const uint8x8_t b = vld1_u8(codes);
++    const uint8x8_t d3 = vdup_n_u8(3);
++    const uint8x8_t c0 = vand_u8(b, d3);
++    const uint8x8_t c1 = vand_u8(vshr_n_u8(b, 2), d3);
++    const uint8x8_t c2 = vand_u8(vshr_n_u8(b, 4), d3);
++    const uint8x8_t c3 = vand_u8(vshr_n_u8(b, 6), d3);
++    const uint8x8x2_t z01 = vzip_u8(c0, c1);   // val0: c0_0 c1_0 c0_1 c1_1 ... (i = 0..3); val1: i = 4..7
++    const uint8x8x2_t z23 = vzip_u8(c2, c3);
++    // 16-bit zip of the interleaved pairs restores the sequential order (c0_i c1_i c2_i c3_i per i).
++    const uint8x8_t lo = vreinterpret_u8_u16(
++        vzip_u16(vreinterpret_u16_u8(z01.val[0]), vreinterpret_u16_u8(z23.val[0])).val[0]);
++    const uint8x8_t hi = vreinterpret_u8_u16(
++        vzip_u16(vreinterpret_u16_u8(z01.val[1]), vreinterpret_u16_u8(z23.val[1])).val[0]);
++    *hi_out = vreinterpretq_s8_u8(vcombine_u8(hi, vdup_n_u8(0)));
++    return vreinterpretq_s8_u8(vcombine_u8(lo, vdup_n_u8(0)));
++}
++
++/// Dot of ONE 32-code activation chunk: codes expanded once, two vdotq_s32 (exact int32 per lane).
++inline int32x4_t chunk_dot(const uint8_t* codes, const int8_t* xq) {
++    int8x16_t chi;
++    const int8x16_t clo = unpack32_q2_0(codes, &chi);
++    int32x4_t acc = vdotq_s32(vdupq_n_s32(0), clo, vld1q_s8(xq));
++    // the high half of `clo` is padding (zero codes contribute nothing); re-dot with the real codes
++    acc = vdotq_s32(acc, chi, vld1q_s8(xq + 16));
++    return acc;
++}
++
++inline float32x4_t hsum4(float32x4_t v) {
++    float32x2_t s = vpadd_f32(vget_low_f32(v), vget_high_f32(v));
++    s = vpadd_f32(s, s);
++    return vdupq_n_f32(vget_lane_f32(s, 0));
++}
++
++/// One weight row against a quantized activation.
++///
++///     sum_j (c_j - 1) d_w xhat_j d_x  ==  d_w * ( d_x*sum(c*xhat) - d_x*sum(xhat) )
++///
++/// split per 32-chunk because `d_x` changes at the chunk boundary while `d_w` does not.
++/// Mirrors the x86 256-bit kernel's operation order per block.
++inline float row_dot(const uint8_t* codes, const uint8_t* scales, const ActQ& a, int nblocks) {
++    float32x4_t acc = vdupq_n_f32(0.0f);
++    float corr = 0.f;
++    for (int b = 0; b < nblocks; ++b) {
++        const float d = h2f(scales + 2 * b);
++        const float32x4_t slo = vcvtq_f32_s32(chunk_dot(codes + b * 16, a.q + b * QK));
++        const float32x4_t shi = vcvtq_f32_s32(chunk_dot(codes + b * 16 + 8, a.q + b * QK + QKA));
++        acc = vfmaq_n_f32(acc, slo, d * a.scale[2 * b]);
++        acc = vfmaq_n_f32(acc, shi, d * a.scale[2 * b + 1]);
++        corr += d * (a.hx[2 * b] + a.hx[2 * b + 1]);
++    }
++    return vgetq_lane_f32(hsum4(acc), 0) - corr;
++}
+ 
+ /// `row_dot` for NT activations at once: the codes of each block are unpacked once, and each token's
+ /// accumulator sees exactly the operations `row_dot` would apply to it, in the same order.
+ template<int NT>
+ inline void row_dot_multi(const uint8_t* codes, const uint8_t* scales, const ActQ* const* a, int nblocks,
+                           float* res) {
+-    if (kZmm) { row_dot_multi_z<NT>(codes, scales, a, nblocks, res); return; }
+-    __m256 acc[NT];
++    float32x4_t acc[NT];
+     float corr[NT];
+-    for (int t = 0; t < NT; ++t) { acc[t] = _mm256_setzero_ps(); corr[t] = 0.f; }
++    for (int t = 0; t < NT; ++t) { acc[t] = vdupq_n_f32(0.0f); corr[t] = 0.f; }
+     for (int b = 0; b < nblocks; ++b) {
+         const float d = h2f(scales + 2 * b);
+-        const __m256i lo = unpack_q2_0(codes + b * 16);
+-        const __m256i hi = unpack_q2_0(codes + b * 16 + 8);
++        int8x16_t chi;
++        const int8x16_t clo = unpack32_q2_0(codes + b * 16, &chi);
++        int8x16_t chi2;
++        const int8x16_t clo2 = unpack32_q2_0(codes + b * 16 + 8, &chi2);
+         for (int t = 0; t < NT; ++t) {
+-            const __m256 slo = _mm256_cvtepi32_ps(
+-                _mm256_dpbusd_epi32(_mm256_setzero_si256(), lo, _mm256_load_si256((const __m256i*) (a[t]->q + b * QK))));
+-            const __m256 shi = _mm256_cvtepi32_ps(
+-                _mm256_dpbusd_epi32(_mm256_setzero_si256(), hi,
+-                                    _mm256_load_si256((const __m256i*) (a[t]->q + b * QK + QKA))));
+-            acc[t] = _mm256_fmadd_ps(_mm256_set1_ps(d * a[t]->scale[2 * b]), slo, acc[t]);
+-            acc[t] = _mm256_fmadd_ps(_mm256_set1_ps(d * a[t]->scale[2 * b + 1]), shi, acc[t]);
++            const int8_t* q = a[t]->q + b * QK;
++            int32x4_t lo = vdotq_s32(vdupq_n_s32(0), clo, vld1q_s8(q));
++            lo = vdotq_s32(lo, chi, vld1q_s8(q + 16));
++            int32x4_t hi = vdotq_s32(vdupq_n_s32(0), clo2, vld1q_s8(q + QKA));
++            hi = vdotq_s32(hi, chi2, vld1q_s8(q + QKA + 16));
++            acc[t] = vfmaq_n_f32(acc[t], vcvtq_f32_s32(lo), d * a[t]->scale[2 * b]);
++            acc[t] = vfmaq_n_f32(acc[t], vcvtq_f32_s32(hi), d * a[t]->scale[2 * b + 1]);
+             corr[t] += d * (a[t]->hx[2 * b] + a[t]->hx[2 * b + 1]);
+         }
+     }
+-    for (int t = 0; t < NT; ++t) res[t] = hsum_ps(acc[t]) - corr[t];
++    for (int t = 0; t < NT; ++t) res[t] = vgetq_lane_f32(hsum4(acc[t]), 0) - corr[t];
++}
++
++// scalar oracle (debug path): codes kept raw, the -1 offset folded via the activation-sum correction
++inline int chunk_dot_oracle(const uint8_t* codes, const int8_t* q, int sum) {
++    int dot = 0;
++    for (int j = 0; j < QKA; ++j) dot += (int) ((codes[j >> 2] >> (2 * (j & 3))) & 3) * (int) q[j];
++    return dot - sum;
++}
++
++inline float row_dot_oracle(const uint8_t* codes, const uint8_t* scales, const ActQ& a, int nblocks) {
++    float result = 0.0f;
++    for (int b = 0; b < nblocks; ++b) {
++        float block = 0.0f;
++        for (int half = 0; half < 2; ++half) {
++            const int chunk = 2 * b + half;
++            const int dot = chunk_dot_oracle(codes + b * 16 + half * 8, a.q + chunk * QKA, a.sum[chunk]);
++            block += a.scale[chunk] * float(dot);
++        }
++        result += h2f(scales + 2 * b) * block;
++    }
++    return result;
+ }
++#endif  // STRATA_ARM64
+ 
+ template<int NT>
+ void expert_multi(const uint8_t* blob, const ActQ* const* a1, float* const* out, ExpertScratchMulti& ws) {
+@@ -344,6 +470,7 @@ void act_quant_q8_1(const float* x, int n, ActQ& a) {
+         return;
+     }
+     a.nchunks = n / QKA;
++#if defined(STRATA_X86)
+     // Plan v0.3 P6: AVX-512, the same operations per element as the scalar loop below (max of |x|, one multiply,
+     // +-0.5 away from zero, truncation, clamp), so the result is bitwise the scalar one.  The scalar loop took
+     // ~22 us per 2560 values - 3.2 ms of every speculative round.
+@@ -373,6 +500,49 @@ void act_quant_q8_1(const float* x, int n, ActQ& a) {
+         }
+         return;
+     }
++#elif defined(STRATA_ARM64)
++    // NEON: the same element rules as the AVX-512 block above (max of |x|, one multiply, +-0.5 away from zero,
++    // truncation, clamp), 32 elements per chunk across eight 4-lane registers.
++    {
++        const float32x4_t half = vdupq_n_f32(0.5f), mhalf = vdupq_n_f32(-0.5f), zero = vdupq_n_f32(0.0f);
++        const int32x4_t lo = vdupq_n_s32(-127), hi = vdupq_n_s32(127);
++        for (int k = 0; k < a.nchunks; ++k) {
++            const float* xb = x + k * QKA;
++            float32x4_t m = vmaxq_f32(vabsq_f32(vld1q_f32(xb)), vabsq_f32(vld1q_f32(xb + 4)));
++            m = vmaxq_f32(m, vmaxq_f32(vabsq_f32(vld1q_f32(xb + 8)), vabsq_f32(vld1q_f32(xb + 12))));
++            m = vmaxq_f32(m, vmaxq_f32(vabsq_f32(vld1q_f32(xb + 16)), vabsq_f32(vld1q_f32(xb + 20))));
++            m = vmaxq_f32(m, vmaxq_f32(vabsq_f32(vld1q_f32(xb + 24)), vabsq_f32(vld1q_f32(xb + 28))));
++            const float amax = vmaxvq_f32(m);
++            const float s = amax > 0.f ? amax / 127.f : 0.f;
++            const float inv = s > 0.f ? 1.f / s : 0.f;
++            const float32x4_t vinv = vdupq_n_f32(inv);
++            int32_t sum = 0;
++            int32x4_t vi[8];
++            for (int j = 0; j < QKA; j += 4) {
++                const float32x4_t t = vmulq_f32(vld1q_f32(xb + j), vinv);
++                const float32x4_t r = vaddq_f32(t, vbslq_f32(vcltq_f32(t, zero), mhalf, half));
++                int32x4_t v = vcvtq_s32_f32(r);  // truncate, as cvttps on x86
++                v = vminq_s32(vmaxq_s32(v, lo), hi);
++                vi[j / 4] = v;
++            }
++            int16x8_t h01 = vcombine_s16(vqmovn_s32(vi[0]), vqmovn_s32(vi[1]));
++            int16x8_t h23 = vcombine_s16(vqmovn_s32(vi[2]), vqmovn_s32(vi[3]));
++            int16x8_t h45 = vcombine_s16(vqmovn_s32(vi[4]), vqmovn_s32(vi[5]));
++            int16x8_t h67 = vcombine_s16(vqmovn_s32(vi[6]), vqmovn_s32(vi[7]));
++            vst1_s8(a.q + k * QKA, vqmovn_s16(h01));
++            vst1_s8(a.q + k * QKA + 8, vqmovn_s16(h23));
++            vst1_s8(a.q + k * QKA + 16, vqmovn_s16(h45));
++            vst1_s8(a.q + k * QKA + 24, vqmovn_s16(h67));
++            int32x4_t s4 = vaddq_s32(vaddq_s32(vaddq_s32(vi[0], vi[1]), vaddq_s32(vi[2], vi[3])),
++                                     vaddq_s32(vaddq_s32(vi[4], vi[5]), vaddq_s32(vi[6], vi[7])));
++            sum = vaddvq_s32(s4);
++            a.scale[k] = s;
++            a.sum[k] = sum;
++            a.hx[k] = s * (float) sum;
++        }
++        return;
++    }
++#endif
+     for (int k = 0; k < a.nchunks; ++k) {
+         const float* xb = x + k * QKA;
+         float amax = 0.f;
+@@ -430,7 +600,6 @@ void s2_expert_vnni_q(const uint8_t* blob, const ActQ& a1, float* out, ExpertScr
+                          blob + O_D_SCALES + (size_t) r * SC_D * 2, ws.a2, SC_D);
+ }
+ 
+-
+ void s2_expert_gu_rows(const uint8_t* blob, const ActQ& a1, float* ff, int r0, int r1) {
+     for (int r = r0; r < r1; ++r) {
+         const float g = row_dot(blob + O_GU_CODES + (size_t) (2 * r) * ROW_GU,
+@@ -497,6 +666,7 @@ void s2_expert_down_rows_multi(const uint8_t* blob, const ActQ* const* a2, int n
+     }
+ }
+ 
++#if defined(STRATA_X86)
+ // ================================ plan v0.3 P6: Q2_0 rows in the GGUF block layout ================================
+ //
+ // The IQ model files keep their down projections in Q2_0 GGUF blocks (fp16 d, then 16 code bytes: 18 bytes per
+@@ -543,6 +713,40 @@ void q2g_rows(const uint8_t* w, size_t row_bytes, int nblocks, const ActQ* const
+     }
+ }
+ }  // namespace
++#endif  // STRATA_X86
++
++#if defined(STRATA_ARM64)
++// GGUF-block-layout Q2_0 rows (18 bytes per 64 weights: fp16 d, then 16 code bytes) in NEON: the same
++// unpack and correction as `row_dot`, walking the 18-byte stride.
++namespace {
++inline float q2g_row_dot(const uint8_t* row, const ActQ& a, int nblocks) {
++    float32x4_t acc = vdupq_n_f32(0.0f);
++    float corr = 0.f;
++    for (int b = 0; b < nblocks; ++b) {
++        const uint8_t* blk = row + (size_t) b * 18;
++        const float d = h2f(blk);
++        const float32x4_t slo = vcvtq_f32_s32(chunk_dot(blk + 2, a.q + b * QK));
++        const float32x4_t shi = vcvtq_f32_s32(chunk_dot(blk + 2 + 8, a.q + b * QK + QKA));
++        acc = vfmaq_n_f32(acc, slo, d * a.scale[2 * b]);
++        acc = vfmaq_n_f32(acc, shi, d * a.scale[2 * b + 1]);
++        corr += d * (a.hx[2 * b] + a.hx[2 * b + 1]);
++    }
++    return vgetq_lane_f32(hsum4(acc), 0) - corr;
++}
++template<int NT>
++inline void q2g_row_multi(const uint8_t* row, const ActQ* const* a, int nblocks, float* res) {
++    for (int t = 0; t < NT; ++t) res[t] = q2g_row_dot(row, *a[t], nblocks);
++}
++template<int NT>
++void q2g_rows(const uint8_t* w, size_t row_bytes, int nblocks, const ActQ* const* a, float* const* out, int r0, int r1) {
++    float res[NT];
++    for (int r = r0; r < r1; ++r) {
++        q2g_row_multi<NT>(w + (size_t) r * row_bytes, a, nblocks, res);
++        for (int t = 0; t < NT; ++t) out[t][r] = res[t];
++    }
++}
++}  // namespace
++#endif  // STRATA_ARM64
+ 
+ void q2_0_gguf_rows_multi(const uint8_t* w, size_t row_bytes, int nblocks, const ActQ* const* a, int nt,
+                           float* const* out, int r0, int r1) {
+diff --git a/src/kernels/cpu/expert_layout.cpp b/src/kernels/cpu/expert_layout.cpp
+index d8adb26..7d7bd7a 100644
+--- a/src/kernels/cpu/expert_layout.cpp
++++ b/src/kernels/cpu/expert_layout.cpp
+@@ -9,6 +9,8 @@
+ #if defined(_MSC_VER)
+ #include <intrin.h>
+ #include <immintrin.h>
++#elif defined(__aarch64__)
++#include <sys/auxv.h>
+ #else
+ #include <cpuid.h>
+ #endif
+@@ -38,6 +40,22 @@ int cpu_isa_cap() {
+     return cap;
+ }
+ 
++#if defined(__aarch64__)
++// strata-jetson port: the x86 CPUID probes below do not exist on ARM.  Every x86
++// dispatch probe reports false so callers take their portable paths (ggml-cpu for
++// IQ experts, GPU-only prefill share); the expert kernel's own capability - ASIMD
++// plus dot-product - is checked in cpu_features() further down.
++bool cpu_avx512_ok() { return false; }
++bool cpu_avx512bw_ok() { return false; }
++bool cpu_avx2_ok() { return false; }
++bool cpu_avx1_ok() { return false; }
++bool cpu_sse42_ok() { return false; }
++bool cpu_gather_fast() { return false; }
++bool cpu_gather_fast_here() { return false; }
++bool cpu_avxvnni_ok() { return false; }
++std::string cpu_name() { return "aarch64"; }
++#else
++
+ bool cpu_avx512_ok() {
+     static const bool ok = [] {
+         if (const char* f = std::getenv("STRATA_FORCE_AVX2"); f != nullptr && f[0] == '1') return false;
+@@ -286,6 +304,7 @@ std::string cpu_name() {
+     const size_t b0 = name.find_first_not_of(' '), b1 = name.find_last_not_of(' ');
+     return b0 == std::string::npos ? std::string("unknown") : name.substr(b0, b1 - b0 + 1);
+ }
++#endif  // __aarch64__
+ 
+ // ---- the AVX-512 probe and the oracle flag (#795) ----
+ //
+@@ -301,7 +320,16 @@ void expert_set_oracle_q8_0(bool enabled) { g_oracle_q8_0.store(enabled, std::me
+ bool expert_oracle_q8_0_enabled() { return g_oracle_q8_0.load(std::memory_order_relaxed); }
+ 
+ const char* CpuFeatures::reason() const {
+-    if (usable()) return "ok";
++    if (usable()) {
++#if defined(__aarch64__)
++        return "ok (aarch64: ASIMD + dotprod)";
++#else
++        return "ok";
++#endif
++    }
++#if defined(__aarch64__)
++    return "missing FEAT_DotProduct (HWCAP ASIMDDP); the Q2_0 expert kernel needs it";
++#endif
+     // Named individually: "AVX-512 not supported" sends a user looking for a new CPU when the machine may have
+     // AVX-512F and be missing only VNNI, which is a much narrower and more explicable gap.
+     static char buf[160];
+@@ -313,6 +341,13 @@ const char* CpuFeatures::reason() const {
+ 
+ CpuFeatures cpu_features() {
+     CpuFeatures f;
++#if defined(__aarch64__)
++    // One capability gates the whole kernel on ARM: FEAT_DotProduct (SDOT/UDOT).  The
++    // x86-named fields all fold onto it; usable() is the AND the callers already check.
++    const bool dp = (getauxval(AT_HWCAP) & HWCAP_ASIMDDP) != 0;
++    f.avx512f = f.avx512bw = f.avx512vl = f.avx512_vnni = f.avx512_vbmi = dp;
++    return f;
++#endif
+     int reg[4] = {0, 0, 0, 0};
+ #if defined(_MSC_VER)
+     __cpuid(reg, 0);
+@@ -339,7 +374,11 @@ void cpu_require_expert_support() {
+     if (f.usable()) return;
+     std::fprintf(stderr,
+                  "strata: this CPU cannot run the expert kernel: %s.\n"
++#if defined(__aarch64__)
++                 "        The engine needs FEAT_DotProduct (ARMv8.2-a sdot/udot; Cortex-A75/A76 or newer).\n"
++#else
+                  "        The engine needs AVX512-VNNI and AVX512-VBMI (Intel Ice Lake / AMD Zen 4 or newer).\n"
++#endif
+                  "        The scalar fallback exists for tests only and is far too slow to decode with.\n",
+                  f.reason());
+     std::exit(1);
+@@ -347,22 +386,34 @@ void cpu_require_expert_support() {
+ 
+ void q2_rows_any(const uint8_t* w, size_t row_bytes, int nblocks, const ActQ* const* a, int nt, float* const* out,
+                  int r0, int r1) {
++#if defined(__aarch64__)
++    q2_0_gguf_rows_multi(w, row_bytes, nblocks, a, nt, out, r0, r1);   // NEON, in expert.cpp
++#else
+     if (cpu_avx512_ok()) q2_0_gguf_rows_multi(w, row_bytes, nblocks, a, nt, out, r0, r1);
+     else if (cpu_avx2_ok()) q2_0_gguf_rows_multi_avx2(w, row_bytes, nblocks, a, nt, out, r0, r1);
+     else q2_0_gguf_rows_multi_avx1(w, row_bytes, nblocks, a, nt, out, r0, r1);   // issue #1699: the third rung
++#endif
+ }
+ 
+ void q2_rows_any_legacy(const uint8_t* w, size_t row_bytes, int nblocks, const ActQ* const* a, int nt, float* const* out,
+                         int r0, int r1) {
++#if defined(__aarch64__)
++    q2_0_gguf_rows_multi(w, row_bytes, nblocks, a, nt, out, r0, r1);
++#else
+     if (cpu_avx512_ok()) q2_0_gguf_rows_multi(w, row_bytes, nblocks, a, nt, out, r0, r1);
+     else if (cpu_avx2_ok()) q2_0_gguf_rows_multi_avx2_legacy(w, row_bytes, nblocks, a, nt, out, r0, r1);
+     else q2_0_gguf_rows_multi_avx1_legacy(w, row_bytes, nblocks, a, nt, out, r0, r1);
++#endif
+ }
+ 
+ void act_quant_any(const float* x, int n, ActQ& a) {
++#if defined(__aarch64__)
++    act_quant_q8_1(x, n, a);
++#else
+     if (cpu_avx512_ok()) act_quant_q8_1(x, n, a);
+     else if (cpu_avx2_ok()) act_quant_q8_1_avx2(x, n, a);
+     else act_quant_q8_1_avx1(x, n, a);   // issue #1699
++#endif
+ }
+ 
+ #if !defined(STRATA_NATIVE_EXPERTS)
+diff --git a/src/kernels/cpu/pool.cpp b/src/kernels/cpu/pool.cpp
+index af1eb5a..dfc8d9e 100644
+--- a/src/kernels/cpu/pool.cpp
++++ b/src/kernels/cpu/pool.cpp
+@@ -8,7 +8,7 @@
+ #include <atomic>
+ #include <cmath>
+ #include <chrono>
+-#include <immintrin.h>
++#include "strata/portability.hpp"
+ 
+ #include <cstdio>
+ #include <cstdlib>
+@@ -511,7 +511,7 @@ void ExpertPool::worker(int id) {
+         uint32_t spins = 0;
+         while (epoch_.load(std::memory_order_acquire) == seen) {
+             if (stop_.load(std::memory_order_relaxed)) return;
+-            _mm_pause();
++            STRATA_PAUSE();
+             if ((++spins & 1023u) != 0) continue;
+             if (std::chrono::steady_clock::now() - parked_at < spin_before_sleep_) continue;
+             std::unique_lock<std::mutex> lk(sleep_mu_);
+@@ -569,7 +569,7 @@ void ExpertPool::wait_parked(const char* what) {
+     uint32_t spins = 0;
+     std::chrono::steady_clock::time_point t0{};
+     while (parked_.load(std::memory_order_acquire) != (uint32_t) n_) {
+-        _mm_pause();
++        STRATA_PAUSE();
+         if ((++spins & 1023u) != 0) continue;
+         const auto now = std::chrono::steady_clock::now();
+         if (spins == 1024u) t0 = now;
+@@ -592,7 +592,7 @@ void ExpertPool::wait_done(int n) {
+     for (;;) {
+         const uint32_t d = done_.load(std::memory_order_acquire);
+         if (d >= (uint32_t) n) return;                                // `>=`: never a wait that an overshoot outlives
+-        _mm_pause();
++        STRATA_PAUSE();
+         if ((++spins & 1023u) != 0) continue;
+         const auto now = std::chrono::steady_clock::now();
+         if (spins == 1024u || d != seen) { t0 = now; seen = d; }     // progress restarts the clock
+@@ -810,7 +810,7 @@ void ExpertPool::run(ExpertJob* jobs, int n) {
+ 
+     // ---- **THE HOST DRAINS TOO (R2.2), INSTEAD OF SPINNING ON `done_`.**
+     //
+-    // The loop below used to be `while (done_ != n) _mm_pause();`.  The host is pinned to core 0 - the core
++    // The loop below used to be `while (done_ != n) STRATA_PAUSE();`.  The host is pinned to core 0 - the core
+     // `physical_cores(true)` deliberately keeps the five workers off - so for the whole drain that core was
+     // idle while five cores did six cores' worth of work.  Measured before the change: 33.7 GB/s against
+     // 5/6 x 44.14 = 36.8 for five workers and 44.14 for six.
+-- 
+2.34.1
+
