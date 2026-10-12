@@ -30,12 +30,21 @@ def gsm8k_fewshot():
 
 
 def gsm8k_answer(text):
-    m = re.findall(r"####\s*\$?(-?[0-9,]+(?:\.[0-9]+)?)", text)
-    if not m:
-        m = re.findall(r"(-?\$?[0-9,]+(?:\.[0-9]+)?)", text.splitlines()[-1]) if text.splitlines() else []
-    if not m:
-        return None
-    v = m[-1].replace(",", "").replace("$", "")
+    # strip common answer/thinking tags: Hunyuan wraps in <answer>..</answer>, R1 in <think>..
+    t = re.sub(r"</?(answer|think|thinking|reasoning)>", " ", text)
+    m = re.findall(r"####\s*\$?(-?[0-9,]+(?:\.[0-9]+)?)", t)
+    if m:
+        v = m[-1]
+    else:
+        v = None
+        for line in reversed([l for l in t.splitlines() if l.strip()]):
+            m2 = re.findall(r"(-?[0-9][0-9,]*(?:\.[0-9]+)?)", line)
+            if m2:
+                v = m2[-1]
+                break
+        if v is None:
+            return None
+    v = v.replace(",", "").replace("$", "")
     try:
         return float(v)
     except ValueError:
