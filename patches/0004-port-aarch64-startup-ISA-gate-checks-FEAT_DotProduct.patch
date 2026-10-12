@@ -1,0 +1,37 @@
+From 8b0bbd7718042aca4563745cfc2be8bf76a5133c Mon Sep 17 00:00:00 2001
+From: strata-jetson-port <strata-jetson@local>
+Date: Tue, 13 Oct 2026 01:56:58 +0800
+Subject: [PATCH 4/4] port(aarch64): startup ISA gate checks FEAT_DotProduct
+ instead of AVX2
+
+---
+ src/program/generate.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/program/generate.cpp b/src/program/generate.cpp
+index 4aa057d..b2c4ebb 100644
+--- a/src/program/generate.cpp
++++ b/src/program/generate.cpp
+@@ -2657,6 +2657,19 @@ int main(int argc, char** argv) {
+     // The experimental older-CPU build (STRATA_ISA_FLOOR=avx|none, compiled on that PC; #394 #595 #623) has ggml-cpu
+     // for that floor, so a native pack's experts run there on ggml-cpu (every AVX2 kernel is behind cpu_avx2_ok).
+     const char* isa_floor = strata::kernels::cpu::isa_floor_build();
++#if defined(__aarch64__)
++    // strata-jetson port: on ARM the CPU expert kernel is the NEON (+dotprod) one in expert.cpp,
++    // gated by cpu_features()'s dot-product check - not AVX2.  Refuse only when it is missing.
++    if (!strata::kernels::cpu::cpu_features().usable()) {
++        std::fprintf(stderr, "strata generate: this CPU (%s) lacks FEAT_DotProduct, which this engine's "
++                             "NEON CPU expert kernel needs (ARMv8.2-a sdot/udot)\n",
++                     strata::kernels::cpu::cpu_name().c_str());
++        return 2;
++    }
++    if (isa_floor[0] == '\0') {
++        // ARM: the x86 AVX2 probe is false by construction; skip that refusal here.
++    } else
++#endif
+     if (!strata::kernels::cpu::cpu_avx2_ok() && isa_floor[0] == '\0') {
+         std::fprintf(stderr, "strata generate: this CPU (%s) does not support AVX2 with FMA and F16C, which this engine's "
+                              "CPU expert kernels need; Strata runs on Intel Haswell (2013), AMD Zen (2017) or newer. "
+-- 
+2.34.1
+

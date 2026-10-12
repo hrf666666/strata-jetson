@@ -1,7 +1,7 @@
 From 36b0de8d8251ad8ea84193fa7224ebf838f51f3c Mon Sep 17 00:00:00 2001
 From: strata-jetson-port <strata-jetson@local>
 Date: Tue, 13 Oct 2026 01:04:14 +0800
-Subject: [PATCH 3/3] port(setup): aarch64 /proc/cpuinfo (Features/Model) and
+Subject: [PATCH 3/4] port(setup): aarch64 /proc/cpuinfo (Features/Model) and
  no ISA floor on ARM
 
 ---
