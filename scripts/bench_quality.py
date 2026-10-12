@@ -117,8 +117,9 @@ def main():
             text, _ = ask(cli, args.model, prompt, 8)
         except Exception as e:
             text = f"<error {e}>"
-        m = re.search(r"[A-E]", text.strip().upper())
-        pred = m.group(0) if m else "?"
+        # the answer is the LAST standalone letter (thinking text is full of A-E words)
+        cands = re.findall(r"\b([A-E])\b", text.strip().upper())
+        pred = cands[-1] if cands else "?"
         ok = pred == key
         correct += ok
         res["arc"].append({"i": i, "ok": bool(ok), "pred": pred, "gold": key})
