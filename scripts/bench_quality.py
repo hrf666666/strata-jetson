@@ -110,7 +110,7 @@ def main():
         res["gsm8k"].append({"i": i, "ok": bool(ok), "pred": pred, "gold": gold})
         if (i + 1) % 20 == 0:
             print(f"gsm8k {i+1}: acc={correct}/{i+1}")
-    res["gsm8k_acc"] = correct / max(1, len(res["gsm8k"]))
+    res["gsm8k_acc"] = (sum(x["ok"] for x in res["gsm8k"]) / len(res["gsm8k"])) if res["gsm8k"] else None
 
     # ---- ARC-Challenge ----
     correct = 0
@@ -135,7 +135,7 @@ def main():
         res["arc"].append({"i": i, "ok": bool(ok), "pred": pred, "gold": key})
         if (i + 1) % 20 == 0:
             print(f"arc {i+1}: acc={correct}/{i+1}")
-    res["arc_acc"] = correct / max(1, len(res["arc"]))
+    res["arc_acc"] = (sum(x["ok"] for x in res["arc"]) / len(res["arc"])) if res["arc"] else None
 
     os.makedirs(os.path.dirname(outp), exist_ok=True)
     with open(outp, "w") as f:
