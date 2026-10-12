@@ -77,17 +77,27 @@ def main():
     ap.add_argument("--n", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--max-tokens-gsm", type=int, default=512)
+    ap.add_argument("--max-tokens-arc", type=int, default=512)
+    ap.add_argument("--only", choices=["gsm", "arc"], default=None)
     ap.add_argument("--out", required=True)
     ap.add_argument("--api-key", default="sk-local")
     args = ap.parse_args()
     cli = OpenAI(base_url=args.base_url, api_key=args.api_key)
 
     res = {"meta": vars(args), "gsm8k": [], "arc": []}
+    outp = os.path.abspath(args.out)
+    if args.only and os.path.exists(outp):   # keep the other part's existing numbers
+        try:
+            prev = json.load(open(outp))
+            res["gsm8k"] = prev.get("gsm8k", [])
+            res["arc"] = prev.get("arc", [])
+        except Exception:
+            pass
 
     # ---- GSM8K ----
     shots = gsm8k_fewshot()
     correct = 0
-    for i, row in enumerate(load_gsm8k(args.data, args.n, args.seed)):
+    for i, row in enumerate(load_gsm8k(args.data, args.n, args.seed) if args.only != "arc" else []):
         q = row["question"]
         gold = row["answer"].split("####")[-1].strip().replace(",", "")
         try:
@@ -105,7 +115,7 @@ def main():
     # ---- ARC-Challenge ----
     correct = 0
     letters = ["A", "B", "C", "D", "E"]
-    for i, row in enumerate(load_arc(args.data, args.n, args.seed)):
+    for i, row in enumerate(load_arc(args.data, args.n, args.seed) if args.only != "gsm" else []):
         ch = row["choices"]
         labels = list(ch["label"])
         texts = list(ch["text"])
@@ -114,7 +124,7 @@ def main():
         prompt = (f"The following is a multiple choice question. Answer with just the letter.\n\n"
                   f"Question: {row['question']}\n{opts}\nAnswer:")
         try:
-            text, _ = ask(cli, args.model, prompt, 8)
+            text, _ = ask(cli, args.model, prompt, args.max_tokens_arc)
         except Exception as e:
             text = f"<error {e}>"
         # the answer is the LAST standalone letter (thinking text is full of A-E words)
@@ -128,8 +138,8 @@ def main():
     res["arc_acc"] = correct / max(1, len(res["arc"]))
 
     import os
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    with open(args.out, "w") as f:
+    os.makedirs(os.path.dirname(outp), exist_ok=True)
+    with open(outp, "w") as f:
         json.dump(res, f, indent=1)
     print(json.dumps({"gsm8k_acc": res["gsm8k_acc"], "arc_acc": res["arc_acc"]}, indent=1))
 
