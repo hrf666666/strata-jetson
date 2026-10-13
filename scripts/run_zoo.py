@@ -229,9 +229,13 @@ def main():
         if g:
             bench(name)
             eval_model(name)
-            if not a.keep:
+            # delete weights ONLY if the eval wrote results, else keep for a re-run
+            wrote = sorted(RAW.glob(f"quality_{name}_*.json"))
+            if not a.keep and wrote:
                 print(f"[{name}] deleting weights (results kept)")
                 g.unlink(missing_ok=True)
+            elif not wrote:
+                print(f"[{name}] eval produced no results - keeping weights for re-run")
 
 
 if __name__ == "__main__":

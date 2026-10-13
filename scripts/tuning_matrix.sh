@@ -26,7 +26,7 @@ rows = [r for r in d if r.get("test") == "tg128"]
 rows.sort(key=lambda r: -(r.get("avg_ts") or 0))
 print("top-5 decode configs (tg128):")
 for r in rows[:5]:
-    print(f"  threads={r.get('n_threads')} fa={r.get('flash_attn')} kv={r.get('cpu_kv') or ''}"
-          f"{r.get('kv', '')} -> {r.get('avg_ts'):.1f} tok/s")
+    print(f"  threads={r.get('n_threads')} fa={r.get('flash_attn')} "
+          f"kv={r.get('type_k')}/{r.get('type_v')} -> {r.get('avg_ts'):.1f} tok/s")
 print(f"worst: {rows[-1].get('avg_ts'):.1f} tok/s  (spread {rows[0].get('avg_ts')/max(rows[-1].get('avg_ts'),0.01):.2f}x)")
 EOF

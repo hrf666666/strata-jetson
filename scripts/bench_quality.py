@@ -2,8 +2,10 @@
 """strata-jetson: quality eval (GSM8K-100 + ARC-Challenge-100) against an OpenAI-compatible endpoint.
 
 Fixed sampling (seed 42), greedy decoding. Scores:
-  - GSM8K: 8-shot CoT from train split, exact match on the final "#### N" number.
-  - ARC-Challenge: 0-shot A/B/C/D letter choice.
+  - GSM8K: 3-shot CoT from the train split, exact match on the final number
+    (prefers "#### N"; else the last line carrying a number, tags stripped).
+  - ARC-Challenge: 0-shot letter choice (last standalone A-E; falls back to a
+    unique choice-text match).
 
 Usage:
   bench_quality.py --base-url http://127.0.0.1:8080/v1 --model strata \
@@ -74,7 +76,9 @@ def ask(cli, model, prompt, max_tokens, timeout=600):
                                       messages=[{"role": "user", "content": prompt}],
                                       max_tokens=max_tokens, temperature=0, timeout=timeout)
     m = out.choices[0].message
-    text = (getattr(m, "content", None) or "") + "\n" + (getattr(m, "reasoning_content", None) or "")
+    # chronological order: thinking FIRST, final answer LAST - the parsers scan
+    # bottom-up, so the final answer must be the last thing in the text
+    text = (getattr(m, "reasoning_content", None) or "") + "\n" + (getattr(m, "content", None) or "")
     return text, time.time() - t0
 
 
@@ -123,7 +127,6 @@ def main():
 
     # ---- ARC-Challenge ----
     correct = 0
-    letters = ["A", "B", "C", "D", "E"]
     for i, row in enumerate(load_arc(args.data, args.n, args.seed) if args.only != "gsm" else []):
         ch = row["choices"]
         labels = list(ch["label"])
@@ -136,9 +139,15 @@ def main():
             text, _ = ask(cli, args.model, prompt, args.max_tokens_arc)
         except Exception as e:
             text = f"<error {e}>"
-        # the answer is the LAST standalone letter (thinking text is full of A-E words)
+        # the answer is the LAST standalone letter (thinking text is full of A-E words);
+        # fallback: a response that quotes exactly one choice's text instead of the letter
         cands = re.findall(r"\b([A-E])\b", text.strip().upper())
-        pred = cands[-1] if cands else "?"
+        if cands:
+            pred = cands[-1]
+        else:
+            low = text.lower()
+            hits = [l for l, t2 in zip(labels, texts) if len(t2) > 8 and t2.lower() in low]
+            pred = hits[-1] if len(hits) == 1 else "?"
         ok = pred == key
         correct += ok
         res["arc"].append({"i": i, "ok": bool(ok), "pred": pred, "gold": key, "text": text[:200]})
