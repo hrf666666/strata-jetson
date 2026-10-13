@@ -29,13 +29,19 @@ def bench_rows(path):
     rows, size, params = [], None, None
     for r in d if isinstance(d, list) else []:
         size = size or r.get("model_size")
-        params = params or r.get("model_params")
-        rows.append({"test": r.get("test"), "avg_ts": r.get("avg_ts")})
+        params = params or r.get("model_n_params")
+        # this llama-bench -o json has no "test" label: derive it from n_prompt/n_gen
+        np_, ng_ = r.get("n_prompt"), r.get("n_gen")
+        test = r.get("test")
+        if not isinstance(test, str):
+            test = (f"tg{ng_}" if (ng_ or 0) > 0 else (f"pp{np_}" if np_ else None)) if np_ is not None else None
+        rows.append({"test": test, "avg_ts": r.get("avg_ts")})
     return {"size": size, "params": params}, rows
 
 
 def main():
     perf, qual = [], []
+    perf_map = {}   # keep the latest bench run per model
     for bp in sorted(glob.glob(str(RAW / "bench_*.json"))):
         name = os.path.basename(bp)[len("bench_"):].rsplit("_", 1)[0]
         name = name[:-5] if name.endswith(".json") else name   # timestamp-less smoke files
@@ -46,9 +52,15 @@ def main():
             continue
         row = {"model": name, "size_gb": meta["size"], "params": meta["params"]}
         for r in rows:
-            if isinstance(r.get("test"), str):
-                row[r["test"]] = round(r["avg_ts"], 1) if r.get("avg_ts") else None
-        perf.append(row)
+            # this llama-bench -o json has no "test" label: derive it from n_prompt/n_gen
+            test = r.get("test")
+            if not isinstance(test, str):
+                np_, ng_ = r.get("n_prompt"), r.get("n_gen")
+                test = (f"tg{np_}" if (ng_ or 0) > 0 else f"pp{np_}") if np_ else None
+            if isinstance(test, str):
+                row[test] = round(r["avg_ts"], 1) if r.get("avg_ts") else None
+        perf_map[name] = row
+    perf = list(perf_map.values())
     qmap = {}   # same model measured twice (e.g. hunyuan before/after a parser fix): keep the LATEST run
     for qp in sorted(glob.glob(str(RAW / "quality_*.json"))):
         name = os.path.basename(qp)[len("quality_"):].rsplit("_", 1)[0]
