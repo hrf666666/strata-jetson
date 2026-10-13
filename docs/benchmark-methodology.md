@@ -55,3 +55,18 @@
 - 所有模型同机、同锁频、同采样间隔、同评测协议串行执行。
 - 模型权重评测后即删（磁盘管道），结果 JSON（含每题记录与原始回答摘录）全部入库。
 - Strata 引擎的两组配置（默认 / pool-workers=3）分别成表，不混用。
+
+## 附：Jetson 推理调参矩阵（"榨干潜力"实验，qwen35-4b Q4_K_M）
+
+llama-bench 全组合扫描：线程 {4,6,8} × flash-attn {0,1} × KV 量化 {f16,q8_0}²（24 组，
+`results/raw/tuning_matrix_*.json`）。已完成 fa=0 切片 17 组：
+
+| 发现 | 数据 |
+|---|---|
+| decode 与 CPU 线程数无关 | t=4/6/8 全部 17.8 tok/s（4B 模型 decode 由 GPU/带宽决定） |
+| flash-attn 对 prefill +6% | 549 vs 519 tok/s @pp2048（t=6） |
+| KV 量化（q8_0）在本尺寸无速度收益 | f16 与 q8_0 差异在噪声内（省显存的场景才有意义） |
+| fa=1 + qwen35-4b GGUF 存在加载失败组合 | "failed to create context"，已记录为该转换文件的兼容性问题 |
+
+结论：Orin NX 上小模型 decode 已由 GPU/带宽封顶，调参空间在 **prefill（开 FA）** 与
+**内存配比（Strata 场景）**；对大 MoE（Strata）则如正文：`--pool-workers` 拓扑是最大杠杆（+59%）。
