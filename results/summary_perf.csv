@@ -1,0 +1,11 @@
+model,size_gb,params,pp128,pp2048,pp8192,tg128,tg8192
+hunyuan-0.5b,349880848,,,,,,
+hunyuan-1.8b,1127990304,,,,,,
+hunyuan-4b,2602612272,,,,,,
+hunyuan-7b,4617129952,,,,,,
+intern-s1-mini,8714702848,,,,,,
+internlm25-1.8b,1170225152,,,,,,
+qwen3vl-2b-ins,1101457408,,,,,,
+qwen3vl-2b-think,1101457408,,,,,,
+r1-distill-1.5b,1111370240,,,,,,
+r1-distill-7b,4677120000,,,,,,

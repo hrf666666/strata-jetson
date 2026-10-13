@@ -1,0 +1,12 @@
+model,gsm8k,arc,n_gsm,n_arc
+hunyuan-0.5b,0.0,0.32,100,100
+hunyuan-1.8b,0.0,0.6,100,100
+hunyuan-4b,0.01,0.77,100,100
+hunyuan-7b,0.05,0.8,100,100
+intern-s1-mini,0.22,0.0,100,100
+internlm25-1.8b,0.41,0.61,100,100
+qwen3vl-2b-ins,0.75,0.71,100,100
+r1-distill-1.5b,0.53,0.54,100,100
+r1-distill-7b,0.64,0.13,100,100
+smoke.json,0.0,0.0,6,6
+strata,0.96,0.5,25,50
