@@ -24,7 +24,8 @@ decode 峰值在 1-3 t/s 量级（Q2_0、专家缓存命中 50-70% 时）。这�
 |---|---|---|
 | NEON+dotprod 专家内核编译 | ✅ | `-march=armv8.2-a+dotprod` 构建，A78AE 上运行正确（GSM8K 96%） |
 | A76 ISA 兼容 | ✅（静态） | A76 支持 ARMv8.2 + dotprod（SDOT/UDOT），与内核要求一致 |
-| CPU-only 引擎构建 | ✅ | `build-cpu/strata`（无 CUDA 依赖，见下） |
+| CPU-only 核心库构建 | ✅ | `libstrata_kernels_cpu.a`（234KB，含 NEON 专家内核）+ `libggml-cpu.a` 无 CUDA 干净构建 |
+| CPU-only 主引擎 | ❌ 上游不存在 | `add_executable(strata)` 被门在 GPU 后端块内（CMakeLists ~L601）：稠密/注意力路径没有 CPU 兜底实现。RK3588 移植=为 GDN/QSA/稠密路径开发 CPU（或 NPU）后端，属真正的开发项目而非配置 |
 | 无 CUDA 的运行路径 | ⚠️ 待验 | CPU-only 加载模型（等模型文件回场后做 token 级 smoke） |
 | NPU 映射 | 📋 分析完成 | 见第 3 节 |
 
