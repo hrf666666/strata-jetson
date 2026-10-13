@@ -46,7 +46,7 @@ def zoo_quality():
     rows = read_csv(ROOT / "results" / "summary_quality.csv")
     out = {}
     for r in rows:
-        if r["model"] == "smoke":
+        if r["model"].startswith("smoke"):   # the 6-question pipeline smoke is not a data point
             continue
         out[r["model"]] = {"g": fl(r["gsm8k"]), "a": fl(r["arc"])}
     return out

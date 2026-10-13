@@ -38,6 +38,7 @@ def main():
     perf, qual = [], []
     for bp in sorted(glob.glob(str(RAW / "bench_*.json"))):
         name = os.path.basename(bp)[len("bench_"):].rsplit("_", 1)[0]
+        name = name[:-5] if name.endswith(".json") else name   # timestamp-less smoke files
         if name.startswith("Qwen3-0.6B"):
             name = "smoke-0.6b"
         meta, rows = bench_rows(bp)
@@ -50,6 +51,7 @@ def main():
         perf.append(row)
     for qp in sorted(glob.glob(str(RAW / "quality_*.json"))):
         name = os.path.basename(qp)[len("quality_"):].rsplit("_", 1)[0]
+        name = name[:-5] if name.endswith(".json") else name
         try:
             d = json.load(open(qp))
         except Exception:
