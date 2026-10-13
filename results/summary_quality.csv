@@ -1,12 +1,8 @@
 model,gsm8k,arc,n_gsm,n_arc
 glm-z1-9b,0.71,0.86,100,100
-hunyuan-0.5b,0.0,0.32,100,100
 hunyuan-0.5b,0.3,0.32,100,100
-hunyuan-1.8b,0.0,0.6,100,100
 hunyuan-1.8b,0.55,0.6,100,100
-hunyuan-4b,0.01,0.77,100,100
 hunyuan-4b,0.8,0.77,100,100
-hunyuan-7b,0.05,0.8,100,100
 hunyuan-7b,0.79,0.8,100,100
 intern-s1-mini,0.22,0.0,100,100
 internlm25-1.8b,0.41,0.61,100,100

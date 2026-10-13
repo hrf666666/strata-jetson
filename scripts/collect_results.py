@@ -49,6 +49,7 @@ def main():
             if isinstance(r.get("test"), str):
                 row[r["test"]] = round(r["avg_ts"], 1) if r.get("avg_ts") else None
         perf.append(row)
+    qmap = {}   # same model measured twice (e.g. hunyuan before/after a parser fix): keep the LATEST run
     for qp in sorted(glob.glob(str(RAW / "quality_*.json"))):
         name = os.path.basename(qp)[len("quality_"):].rsplit("_", 1)[0]
         name = name[:-5] if name.endswith(".json") else name
@@ -56,8 +57,9 @@ def main():
             d = json.load(open(qp))
         except Exception:
             continue
-        qual.append({"model": name, "gsm8k": d.get("gsm8k_acc"), "arc": d.get("arc_acc"),
-                     "n_gsm": len(d.get("gsm8k") or []), "n_arc": len(d.get("arc") or [])})
+        qmap[name] = {"model": name, "gsm8k": d.get("gsm8k_acc"), "arc": d.get("arc_acc"),
+                      "n_gsm": len(d.get("gsm8k") or []), "n_arc": len(d.get("arc") or [])}
+    qual = list(qmap.values())
 
     with open(OUT / "summary_perf.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["model", "size_gb", "params", "pp128", "pp2048", "pp8192", "tg128", "tg8192"])
