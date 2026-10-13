@@ -21,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work"
 GGUF_DIR = WORK / "zoo" / "gguf"
+RAW = ROOT / "results" / "raw"
 LLAMA = WORK / "llama-build" / "bin"
 RESULTS = ROOT / "results" / "raw"
 
