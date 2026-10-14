@@ -1,4 +1,4 @@
-# 模型与构建产物（不入库）
+# ---- 模型与构建产物（体积大或可再生） ----
 work/
 models/
 *.gguf
@@ -10,8 +10,18 @@ build*/
 venv/
 __pycache__/
 *.pyc
-*.log
 hf-cache/
+edge-deploy/
+
+# ---- 日志与临时文件 ----
+*.log
+*.tmp
 .DS_Store
-# 评测原始大文件只留摘要
+
+# ---- 评测原始大文件（只入库汇总 CSV 与图表） ----
 results/raw/
+
+# ---- 冒烟/调试遗留 ----
+SMOKE.md
+scripts/test_*
+scripts/debug_*
