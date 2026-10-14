@@ -1,0 +1,257 @@
+{
+ "meta": {
+  "model": "/home/nvidia/code/strata-jetson/work/zoo/gguf/qwen35-4b.gguf",
+  "judge_tag": "qwen35-4b",
+  "target": "strata_pw3",
+  "port": 8094,
+  "data": "/home/nvidia/code/strata-jetson/work/data",
+  "n_probs": 100,
+  "ctx": 4096,
+  "threads": 8
+ },
+ "summary": {
+  "judge": "qwen35-4b",
+  "target": "strata_pw3",
+  "target_file": "quality_strata_pw3.json",
+  "target_acc": 0.96,
+  "n": 25,
+  "n_used": 25,
+  "verify_acc": 0.44,
+  "auc": 1.0,
+  "ece": 0.5284,
+  "brier": 0.3149,
+  "mean_p_yes_correct": 0.4527,
+  "mean_p_yes_wrong": 0.0747,
+  "sel_acc_cov100": 0.96,
+  "sel_acc_cov75": 1.0,
+  "sel_acc_cov50": 1.0,
+  "seconds": 7.8
+ },
+ "records": [
+  {
+   "i": 0,
+   "pred": 52.0,
+   "gold": "52",
+   "ok": true,
+   "coverage": 0.996,
+   "p_yes": 0.1482,
+   "verify_ok": false
+  },
+  {
+   "i": 1,
+   "pred": 5.0,
+   "gold": "5",
+   "ok": true,
+   "coverage": 0.9971,
+   "p_yes": 0.171,
+   "verify_ok": false
+  },
+  {
+   "i": 2,
+   "pred": 83.0,
+   "gold": "83",
+   "ok": true,
+   "coverage": 0.9962,
+   "p_yes": 0.3506,
+   "verify_ok": false
+  },
+  {
+   "i": 3,
+   "pred": 1.0,
+   "gold": "10",
+   "ok": false,
+   "coverage": 0.9968,
+   "p_yes": 0.0747,
+   "verify_ok": true
+  },
+  {
+   "i": 4,
+   "pred": 70.0,
+   "gold": "70",
+   "ok": true,
+   "coverage": 0.9957,
+   "p_yes": 0.5095,
+   "verify_ok": true
+  },
+  {
+   "i": 5,
+   "pred": 36.0,
+   "gold": "36",
+   "ok": true,
+   "coverage": 0.9915,
+   "p_yes": 0.3544,
+   "verify_ok": false
+  },
+  {
+   "i": 6,
+   "pred": 48.0,
+   "gold": "48",
+   "ok": true,
+   "coverage": 0.9945,
+   "p_yes": 0.6783,
+   "verify_ok": true
+  },
+  {
+   "i": 7,
+   "pred": 16.0,
+   "gold": "16",
+   "ok": true,
+   "coverage": 0.9945,
+   "p_yes": 0.5379,
+   "verify_ok": true
+  },
+  {
+   "i": 8,
+   "pred": 8.0,
+   "gold": "8",
+   "ok": true,
+   "coverage": 0.9961,
+   "p_yes": 0.3416,
+   "verify_ok": false
+  },
+  {
+   "i": 9,
+   "pred": 48.0,
+   "gold": "48",
+   "ok": true,
+   "coverage": 0.9956,
+   "p_yes": 0.887,
+   "verify_ok": true
+  },
+  {
+   "i": 10,
+   "pred": 90.0,
+   "gold": "90",
+   "ok": true,
+   "coverage": 0.9963,
+   "p_yes": 0.6143,
+   "verify_ok": true
+  },
+  {
+   "i": 11,
+   "pred": 10.0,
+   "gold": "10",
+   "ok": true,
+   "coverage": 0.9958,
+   "p_yes": 0.6322,
+   "verify_ok": true
+  },
+  {
+   "i": 12,
+   "pred": 2.0,
+   "gold": "2",
+   "ok": true,
+   "coverage": 0.9951,
+   "p_yes": 0.5204,
+   "verify_ok": true
+  },
+  {
+   "i": 13,
+   "pred": 45000.0,
+   "gold": "45000",
+   "ok": true,
+   "coverage": 0.9948,
+   "p_yes": 0.5164,
+   "verify_ok": true
+  },
+  {
+   "i": 14,
+   "pred": 18.0,
+   "gold": "18",
+   "ok": true,
+   "coverage": 0.9959,
+   "p_yes": 0.3078,
+   "verify_ok": false
+  },
+  {
+   "i": 15,
+   "pred": 140.0,
+   "gold": "140",
+   "ok": true,
+   "coverage": 0.9949,
+   "p_yes": 0.6906,
+   "verify_ok": true
+  },
+  {
+   "i": 16,
+   "pred": 17.0,
+   "gold": "17",
+   "ok": true,
+   "coverage": 0.9944,
+   "p_yes": 0.3448,
+   "verify_ok": false
+  },
+  {
+   "i": 17,
+   "pred": 68.0,
+   "gold": "68",
+   "ok": true,
+   "coverage": 0.9949,
+   "p_yes": 0.3363,
+   "verify_ok": false
+  },
+  {
+   "i": 18,
+   "pred": 8.0,
+   "gold": "8",
+   "ok": true,
+   "coverage": 0.9964,
+   "p_yes": 0.3528,
+   "verify_ok": false
+  },
+  {
+   "i": 19,
+   "pred": 14.0,
+   "gold": "14",
+   "ok": true,
+   "coverage": 0.9957,
+   "p_yes": 0.4144,
+   "verify_ok": false
+  },
+  {
+   "i": 20,
+   "pred": 50.0,
+   "gold": "50",
+   "ok": true,
+   "coverage": 0.9949,
+   "p_yes": 0.3724,
+   "verify_ok": false
+  },
+  {
+   "i": 21,
+   "pred": 100.0,
+   "gold": "100",
+   "ok": true,
+   "coverage": 0.9955,
+   "p_yes": 0.368,
+   "verify_ok": false
+  },
+  {
+   "i": 22,
+   "pred": 125.0,
+   "gold": "125",
+   "ok": true,
+   "coverage": 0.9952,
+   "p_yes": 0.3632,
+   "verify_ok": false
+  },
+  {
+   "i": 23,
+   "pred": 48.0,
+   "gold": "48",
+   "ok": true,
+   "coverage": 0.9951,
+   "p_yes": 0.4572,
+   "verify_ok": false
+  },
+  {
+   "i": 24,
+   "pred": 15400.0,
+   "gold": "15400",
+   "ok": true,
+   "coverage": 0.9951,
+   "p_yes": 0.596,
+   "verify_ok": true
+  }
+ ]
+}

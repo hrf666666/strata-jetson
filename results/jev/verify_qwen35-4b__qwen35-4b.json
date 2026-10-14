@@ -1,0 +1,932 @@
+{
+ "meta": {
+  "model": "/home/nvidia/code/strata-jetson/work/zoo/gguf/qwen35-4b.gguf",
+  "judge_tag": "qwen35-4b",
+  "target": "qwen35-4b",
+  "port": 8094,
+  "data": "/home/nvidia/code/strata-jetson/work/data",
+  "n_probs": 100,
+  "ctx": 4096,
+  "threads": 8
+ },
+ "summary": {
+  "judge": "qwen35-4b",
+  "target": "qwen35-4b",
+  "target_file": "quality_qwen35-4b_1013-1801.json",
+  "target_acc": 0.12,
+  "n": 100,
+  "n_used": 100,
+  "verify_acc": 0.85,
+  "auc": 0.8826,
+  "ece": 0.1687,
+  "brier": 0.1119,
+  "mean_p_yes_correct": 0.5584,
+  "mean_p_yes_wrong": 0.2494,
+  "sel_acc_cov100": 0.12,
+  "sel_acc_cov75": 0.16,
+  "sel_acc_cov50": 0.24,
+  "seconds": 33.3
+ },
+ "records": [
+  {
+   "i": 0,
+   "pred": 10.0,
+   "gold": "52",
+   "ok": false,
+   "coverage": 0.9965,
+   "p_yes": 0.1495,
+   "verify_ok": true
+  },
+  {
+   "i": 1,
+   "pred": 2.0,
+   "gold": "5",
+   "ok": false,
+   "coverage": 0.9973,
+   "p_yes": 0.1554,
+   "verify_ok": true
+  },
+  {
+   "i": 2,
+   "pred": 4.0,
+   "gold": "83",
+   "ok": false,
+   "coverage": 0.9953,
+   "p_yes": 0.2486,
+   "verify_ok": true
+  },
+  {
+   "i": 3,
+   "pred": 4.0,
+   "gold": "10",
+   "ok": false,
+   "coverage": 0.9962,
+   "p_yes": 0.1414,
+   "verify_ok": true
+  },
+  {
+   "i": 4,
+   "pred": 2.0,
+   "gold": "70",
+   "ok": false,
+   "coverage": 0.9957,
+   "p_yes": 0.0852,
+   "verify_ok": true
+  },
+  {
+   "i": 5,
+   "pred": 4.0,
+   "gold": "36",
+   "ok": false,
+   "coverage": 0.9958,
+   "p_yes": 0.1127,
+   "verify_ok": true
+  },
+  {
+   "i": 6,
+   "pred": 20.0,
+   "gold": "48",
+   "ok": false,
+   "coverage": 0.9954,
+   "p_yes": 0.2818,
+   "verify_ok": true
+  },
+  {
+   "i": 7,
+   "pred": 16.0,
+   "gold": "16",
+   "ok": true,
+   "coverage": 0.9945,
+   "p_yes": 0.5379,
+   "verify_ok": true
+  },
+  {
+   "i": 8,
+   "pred": 5.0,
+   "gold": "8",
+   "ok": false,
+   "coverage": 0.9965,
+   "p_yes": 0.2809,
+   "verify_ok": true
+  },
+  {
+   "i": 9,
+   "pred": 48.0,
+   "gold": "48",
+   "ok": true,
+   "coverage": 0.9956,
+   "p_yes": 0.887,
+   "verify_ok": true
+  },
+  {
+   "i": 10,
+   "pred": 20.0,
+   "gold": "90",
+   "ok": false,
+   "coverage": 0.9981,
+   "p_yes": 0.016,
+   "verify_ok": true
+  },
+  {
+   "i": 11,
+   "pred": 10.0,
+   "gold": "10",
+   "ok": true,
+   "coverage": 0.9958,
+   "p_yes": 0.6322,
+   "verify_ok": true
+  },
+  {
+   "i": 12,
+   "pred": 30.0,
+   "gold": "2",
+   "ok": false,
+   "coverage": 0.9962,
+   "p_yes": 0.1928,
+   "verify_ok": true
+  },
+  {
+   "i": 13,
+   "pred": 5.0,
+   "gold": "45000",
+   "ok": false,
+   "coverage": 0.9968,
+   "p_yes": 0.1967,
+   "verify_ok": true
+  },
+  {
+   "i": 14,
+   "pred": 15.0,
+   "gold": "18",
+   "ok": false,
+   "coverage": 0.9969,
+   "p_yes": 0.1019,
+   "verify_ok": true
+  },
+  {
+   "i": 15,
+   "pred": 140.0,
+   "gold": "140",
+   "ok": true,
+   "coverage": 0.9949,
+   "p_yes": 0.6906,
+   "verify_ok": true
+  },
+  {
+   "i": 16,
+   "pred": 5.0,
+   "gold": "17",
+   "ok": false,
+   "coverage": 0.9944,
+   "p_yes": 0.3542,
+   "verify_ok": true
+  },
+  {
+   "i": 17,
+   "pred": 23.0,
+   "gold": "68",
+   "ok": false,
+   "coverage": 0.9951,
+   "p_yes": 0.4936,
+   "verify_ok": true
+  },
+  {
+   "i": 18,
+   "pred": 4.0,
+   "gold": "8",
+   "ok": false,
+   "coverage": 0.9956,
+   "p_yes": 0.2554,
+   "verify_ok": true
+  },
+  {
+   "i": 19,
+   "pred": 14.0,
+   "gold": "14",
+   "ok": true,
+   "coverage": 0.9957,
+   "p_yes": 0.4144,
+   "verify_ok": false
+  },
+  {
+   "i": 20,
+   "pred": 2.0,
+   "gold": "50",
+   "ok": false,
+   "coverage": 0.9941,
+   "p_yes": 0.2893,
+   "verify_ok": true
+  },
+  {
+   "i": 21,
+   "pred": 0.2,
+   "gold": "100",
+   "ok": false,
+   "coverage": 0.9979,
+   "p_yes": 0.0251,
+   "verify_ok": true
+  },
+  {
+   "i": 22,
+   "pred": 4.0,
+   "gold": "125",
+   "ok": false,
+   "coverage": 0.9968,
+   "p_yes": 0.2314,
+   "verify_ok": true
+  },
+  {
+   "i": 23,
+   "pred": 6.0,
+   "gold": "48",
+   "ok": false,
+   "coverage": 0.9967,
+   "p_yes": 0.1604,
+   "verify_ok": true
+  },
+  {
+   "i": 24,
+   "pred": 1800.0,
+   "gold": "15400",
+   "ok": false,
+   "coverage": 0.9965,
+   "p_yes": 0.093,
+   "verify_ok": true
+  },
+  {
+   "i": 25,
+   "pred": 30.0,
+   "gold": "250",
+   "ok": false,
+   "coverage": 0.9957,
+   "p_yes": 0.3754,
+   "verify_ok": true
+  },
+  {
+   "i": 26,
+   "pred": 200.0,
+   "gold": "18",
+   "ok": false,
+   "coverage": 0.9964,
+   "p_yes": 0.052,
+   "verify_ok": true
+  },
+  {
+   "i": 27,
+   "pred": 4.0,
+   "gold": "1490",
+   "ok": false,
+   "coverage": 0.9972,
+   "p_yes": 0.0597,
+   "verify_ok": true
+  },
+  {
+   "i": 28,
+   "pred": 9.0,
+   "gold": "11",
+   "ok": false,
+   "coverage": 0.9944,
+   "p_yes": 0.4683,
+   "verify_ok": true
+  },
+  {
+   "i": 29,
+   "pred": 106.0,
+   "gold": "106",
+   "ok": true,
+   "coverage": 0.9954,
+   "p_yes": 0.3401,
+   "verify_ok": false
+  },
+  {
+   "i": 30,
+   "pred": 138.0,
+   "gold": "138",
+   "ok": true,
+   "coverage": 0.9953,
+   "p_yes": 0.4525,
+   "verify_ok": false
+  },
+  {
+   "i": 31,
+   "pred": 5.0,
+   "gold": "15",
+   "ok": false,
+   "coverage": 0.9927,
+   "p_yes": 0.5716,
+   "verify_ok": false
+  },
+  {
+   "i": 32,
+   "pred": 2.0,
+   "gold": "4",
+   "ok": false,
+   "coverage": 0.9952,
+   "p_yes": 0.1591,
+   "verify_ok": true
+  },
+  {
+   "i": 33,
+   "pred": 10.0,
+   "gold": "82",
+   "ok": false,
+   "coverage": 0.9967,
+   "p_yes": 0.168,
+   "verify_ok": true
+  },
+  {
+   "i": 34,
+   "pred": 4.0,
+   "gold": "2",
+   "ok": false,
+   "coverage": 0.9951,
+   "p_yes": 0.1912,
+   "verify_ok": true
+  },
+  {
+   "i": 35,
+   "pred": 8.0,
+   "gold": "51",
+   "ok": false,
+   "coverage": 0.9935,
+   "p_yes": 0.3247,
+   "verify_ok": true
+  },
+  {
+   "i": 36,
+   "pred": 16.0,
+   "gold": "4",
+   "ok": false,
+   "coverage": 0.9965,
+   "p_yes": 0.3613,
+   "verify_ok": true
+  },
+  {
+   "i": 37,
+   "pred": 72.0,
+   "gold": "100",
+   "ok": false,
+   "coverage": 0.9944,
+   "p_yes": 0.6539,
+   "verify_ok": false
+  },
+  {
+   "i": 38,
+   "pred": 5.0,
+   "gold": "25",
+   "ok": false,
+   "coverage": 0.9967,
+   "p_yes": 0.1333,
+   "verify_ok": true
+  },
+  {
+   "i": 39,
+   "pred": 5.0,
+   "gold": "188",
+   "ok": false,
+   "coverage": 0.997,
+   "p_yes": 0.0224,
+   "verify_ok": true
+  },
+  {
+   "i": 40,
+   "pred": 10.0,
+   "gold": "30",
+   "ok": false,
+   "coverage": 0.9962,
+   "p_yes": 0.1199,
+   "verify_ok": true
+  },
+  {
+   "i": 41,
+   "pred": 30.0,
+   "gold": "30",
+   "ok": true,
+   "coverage": 0.9921,
+   "p_yes": 0.7086,
+   "verify_ok": true
+  },
+  {
+   "i": 42,
+   "pred": 1.0,
+   "gold": "150",
+   "ok": false,
+   "coverage": 0.9972,
+   "p_yes": 0.029,
+   "verify_ok": true
+  },
+  {
+   "i": 43,
+   "pred": 7.0,
+   "gold": "7",
+   "ok": true,
+   "coverage": 0.9929,
+   "p_yes": 0.7037,
+   "verify_ok": true
+  },
+  {
+   "i": 44,
+   "pred": 2.0,
+   "gold": "350",
+   "ok": false,
+   "coverage": 0.9952,
+   "p_yes": 0.0902,
+   "verify_ok": true
+  },
+  {
+   "i": 45,
+   "pred": 5.0,
+   "gold": "2",
+   "ok": false,
+   "coverage": 0.9941,
+   "p_yes": 0.6574,
+   "verify_ok": false
+  },
+  {
+   "i": 46,
+   "pred": 10.0,
+   "gold": "36",
+   "ok": false,
+   "coverage": 0.9965,
+   "p_yes": 0.4333,
+   "verify_ok": true
+  },
+  {
+   "i": 47,
+   "pred": 5.0,
+   "gold": "2",
+   "ok": false,
+   "coverage": 0.9942,
+   "p_yes": 0.4994,
+   "verify_ok": true
+  },
+  {
+   "i": 48,
+   "pred": 37.0,
+   "gold": "14",
+   "ok": false,
+   "coverage": 0.9954,
+   "p_yes": 0.1961,
+   "verify_ok": true
+  },
+  {
+   "i": 49,
+   "pred": 10.0,
+   "gold": "33",
+   "ok": false,
+   "coverage": 0.9974,
+   "p_yes": 0.0544,
+   "verify_ok": true
+  },
+  {
+   "i": 50,
+   "pred": 7.14,
+   "gold": "21",
+   "ok": false,
+   "coverage": 0.9984,
+   "p_yes": 0.0082,
+   "verify_ok": true
+  },
+  {
+   "i": 51,
+   "pred": 20.0,
+   "gold": "175",
+   "ok": false,
+   "coverage": 0.9969,
+   "p_yes": 0.1628,
+   "verify_ok": true
+  },
+  {
+   "i": 52,
+   "pred": 24.0,
+   "gold": "60",
+   "ok": false,
+   "coverage": 0.9926,
+   "p_yes": 0.671,
+   "verify_ok": false
+  },
+  {
+   "i": 53,
+   "pred": 49.0,
+   "gold": "49",
+   "ok": true,
+   "coverage": 0.9964,
+   "p_yes": 0.4532,
+   "verify_ok": false
+  },
+  {
+   "i": 54,
+   "pred": 72.0,
+   "gold": "1800",
+   "ok": false,
+   "coverage": 0.9954,
+   "p_yes": 0.207,
+   "verify_ok": true
+  },
+  {
+   "i": 55,
+   "pred": 4.0,
+   "gold": "27",
+   "ok": false,
+   "coverage": 0.9963,
+   "p_yes": 0.1773,
+   "verify_ok": true
+  },
+  {
+   "i": 56,
+   "pred": 5.0,
+   "gold": "16",
+   "ok": false,
+   "coverage": 0.9955,
+   "p_yes": 0.1734,
+   "verify_ok": true
+  },
+  {
+   "i": 57,
+   "pred": 6.0,
+   "gold": "49",
+   "ok": false,
+   "coverage": 0.995,
+   "p_yes": 0.2513,
+   "verify_ok": true
+  },
+  {
+   "i": 58,
+   "pred": 72.0,
+   "gold": "6",
+   "ok": false,
+   "coverage": 0.997,
+   "p_yes": 0.04,
+   "verify_ok": true
+  },
+  {
+   "i": 59,
+   "pred": 48.0,
+   "gold": "32",
+   "ok": false,
+   "coverage": 0.9949,
+   "p_yes": 0.383,
+   "verify_ok": true
+  },
+  {
+   "i": 60,
+   "pred": 52.0,
+   "gold": "168",
+   "ok": false,
+   "coverage": 0.9957,
+   "p_yes": 0.247,
+   "verify_ok": true
+  },
+  {
+   "i": 61,
+   "pred": 10.0,
+   "gold": "225",
+   "ok": false,
+   "coverage": 0.9976,
+   "p_yes": 0.039,
+   "verify_ok": true
+  },
+  {
+   "i": 62,
+   "pred": 35.0,
+   "gold": "50",
+   "ok": false,
+   "coverage": 0.9958,
+   "p_yes": 0.1825,
+   "verify_ok": true
+  },
+  {
+   "i": 63,
+   "pred": 90.0,
+   "gold": "45",
+   "ok": false,
+   "coverage": 0.9966,
+   "p_yes": 0.3954,
+   "verify_ok": true
+  },
+  {
+   "i": 64,
+   "pred": 3.0,
+   "gold": "7",
+   "ok": false,
+   "coverage": 0.996,
+   "p_yes": 0.344,
+   "verify_ok": true
+  },
+  {
+   "i": 65,
+   "pred": 200.0,
+   "gold": "800",
+   "ok": false,
+   "coverage": 0.9951,
+   "p_yes": 0.4844,
+   "verify_ok": true
+  },
+  {
+   "i": 66,
+   "pred": 5.0,
+   "gold": "22",
+   "ok": false,
+   "coverage": 0.9961,
+   "p_yes": 0.1819,
+   "verify_ok": true
+  },
+  {
+   "i": 67,
+   "pred": 235.0,
+   "gold": "235",
+   "ok": true,
+   "coverage": 0.9923,
+   "p_yes": 0.515,
+   "verify_ok": true
+  },
+  {
+   "i": 68,
+   "pred": 72.0,
+   "gold": "3",
+   "ok": false,
+   "coverage": 0.9947,
+   "p_yes": 0.2527,
+   "verify_ok": true
+  },
+  {
+   "i": 69,
+   "pred": 36.0,
+   "gold": "2",
+   "ok": false,
+   "coverage": 0.9943,
+   "p_yes": 0.4484,
+   "verify_ok": true
+  },
+  {
+   "i": 70,
+   "pred": 4.0,
+   "gold": "3000",
+   "ok": false,
+   "coverage": 0.9954,
+   "p_yes": 0.1264,
+   "verify_ok": true
+  },
+  {
+   "i": 71,
+   "pred": 15.0,
+   "gold": "300",
+   "ok": false,
+   "coverage": 0.9925,
+   "p_yes": 0.5038,
+   "verify_ok": false
+  },
+  {
+   "i": 72,
+   "pred": 72.0,
+   "gold": "20",
+   "ok": false,
+   "coverage": 0.9942,
+   "p_yes": 0.6928,
+   "verify_ok": false
+  },
+  {
+   "i": 73,
+   "pred": 1.0,
+   "gold": "130",
+   "ok": false,
+   "coverage": 0.9971,
+   "p_yes": 0.0391,
+   "verify_ok": true
+  },
+  {
+   "i": 74,
+   "pred": 8.0,
+   "gold": "1",
+   "ok": false,
+   "coverage": 0.9952,
+   "p_yes": 0.3108,
+   "verify_ok": true
+  },
+  {
+   "i": 75,
+   "pred": 12.0,
+   "gold": "8",
+   "ok": false,
+   "coverage": 0.996,
+   "p_yes": 0.1999,
+   "verify_ok": true
+  },
+  {
+   "i": 76,
+   "pred": 5.0,
+   "gold": "50",
+   "ok": false,
+   "coverage": 0.9963,
+   "p_yes": 0.0866,
+   "verify_ok": true
+  },
+  {
+   "i": 77,
+   "pred": 4.0,
+   "gold": "3",
+   "ok": false,
+   "coverage": 0.9934,
+   "p_yes": 0.5474,
+   "verify_ok": false
+  },
+  {
+   "i": 78,
+   "pred": 16.0,
+   "gold": "5",
+   "ok": false,
+   "coverage": 0.9974,
+   "p_yes": 0.0397,
+   "verify_ok": true
+  },
+  {
+   "i": 79,
+   "pred": 24.0,
+   "gold": "110",
+   "ok": false,
+   "coverage": 0.9959,
+   "p_yes": 0.7339,
+   "verify_ok": false
+  },
+  {
+   "i": 80,
+   "pred": 3.0,
+   "gold": "1300",
+   "ok": false,
+   "coverage": 0.9958,
+   "p_yes": 0.1208,
+   "verify_ok": true
+  },
+  {
+   "i": 81,
+   "pred": 3.0,
+   "gold": "16",
+   "ok": false,
+   "coverage": 0.9963,
+   "p_yes": 0.135,
+   "verify_ok": true
+  },
+  {
+   "i": 82,
+   "pred": 10.0,
+   "gold": "80",
+   "ok": false,
+   "coverage": 0.9959,
+   "p_yes": 0.0698,
+   "verify_ok": true
+  },
+  {
+   "i": 83,
+   "pred": 10.0,
+   "gold": "45",
+   "ok": false,
+   "coverage": 0.9952,
+   "p_yes": 0.4322,
+   "verify_ok": true
+  },
+  {
+   "i": 84,
+   "pred": 2.0,
+   "gold": "36",
+   "ok": false,
+   "coverage": 0.9964,
+   "p_yes": 0.0344,
+   "verify_ok": true
+  },
+  {
+   "i": 85,
+   "pred": 2.0,
+   "gold": "5",
+   "ok": false,
+   "coverage": 0.992,
+   "p_yes": 0.5617,
+   "verify_ok": false
+  },
+  {
+   "i": 86,
+   "pred": 6.0,
+   "gold": "9",
+   "ok": false,
+   "coverage": 0.9949,
+   "p_yes": 0.5937,
+   "verify_ok": false
+  },
+  {
+   "i": 87,
+   "pred": 24.0,
+   "gold": "36",
+   "ok": false,
+   "coverage": 0.9947,
+   "p_yes": 0.4187,
+   "verify_ok": true
+  },
+  {
+   "i": 88,
+   "pred": 1.0,
+   "gold": "60",
+   "ok": false,
+   "coverage": 0.9966,
+   "p_yes": 0.2206,
+   "verify_ok": true
+  },
+  {
+   "i": 89,
+   "pred": 20.0,
+   "gold": "9",
+   "ok": false,
+   "coverage": 0.9961,
+   "p_yes": 0.2384,
+   "verify_ok": true
+  },
+  {
+   "i": 90,
+   "pred": 9.0,
+   "gold": "1",
+   "ok": false,
+   "coverage": 0.9951,
+   "p_yes": 0.2037,
+   "verify_ok": true
+  },
+  {
+   "i": 91,
+   "pred": 3.0,
+   "gold": "30",
+   "ok": false,
+   "coverage": 0.9968,
+   "p_yes": 0.118,
+   "verify_ok": true
+  },
+  {
+   "i": 92,
+   "pred": 80000.0,
+   "gold": "70000",
+   "ok": false,
+   "coverage": 0.9972,
+   "p_yes": 0.0962,
+   "verify_ok": true
+  },
+  {
+   "i": 93,
+   "pred": 2.0,
+   "gold": "34",
+   "ok": false,
+   "coverage": 0.9961,
+   "p_yes": 0.032,
+   "verify_ok": true
+  },
+  {
+   "i": 94,
+   "pred": 6.0,
+   "gold": "13",
+   "ok": false,
+   "coverage": 0.9952,
+   "p_yes": 0.4098,
+   "verify_ok": true
+  },
+  {
+   "i": 95,
+   "pred": 5.0,
+   "gold": "306",
+   "ok": false,
+   "coverage": 0.997,
+   "p_yes": 0.0346,
+   "verify_ok": true
+  },
+  {
+   "i": 96,
+   "pred": 55.0,
+   "gold": "55",
+   "ok": true,
+   "coverage": 0.996,
+   "p_yes": 0.3651,
+   "verify_ok": false
+  },
+  {
+   "i": 97,
+   "pred": 6.0,
+   "gold": "24",
+   "ok": false,
+   "coverage": 0.9927,
+   "p_yes": 0.352,
+   "verify_ok": true
+  },
+  {
+   "i": 98,
+   "pred": 2.0,
+   "gold": "75",
+   "ok": false,
+   "coverage": 0.9974,
+   "p_yes": 0.4251,
+   "verify_ok": true
+  },
+  {
+   "i": 99,
+   "pred": 4.0,
+   "gold": "24",
+   "ok": false,
+   "coverage": 0.9977,
+   "p_yes": 0.0344,
+   "verify_ok": true
+  }
+ ]
+}

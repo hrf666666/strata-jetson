@@ -102,7 +102,14 @@ ARC-Challenge 100 题（同题同序对照 3.3 生成式分数）：
 
 结论：≥2B 对话模型"已经是 Jev"——评分全面胜过生成解析且天然校准（4B ECE 0.048），
 生成答对时 97.5% 一致、另净救回 15 题；**<1B/base 模型不能直接当 judge**（论文微调
-动机在边缘侧的实证）。100 题评分 3-29 s vs 生成式 10-17 min（~35×）。详见
+动机在边缘侧的实证）。100 题评分 3-29 s vs 生成式 10-17 min（~35×）。
+
+同一框架的 **noul 二元验证**（判"这个答案对不对"，`scripts/jev_verify.py`）：
+judge 只看题面+候选答案，目标模型权重无需在盘——一个 4B judge 给全动物园的
+GSM8K 答案当质检员（AUC 0.66-0.79，置信 top-50% 准确率 +8~12 分），给 125B
+Strata 引擎的 25 题答案排序 **AUC 1.0**（n 小仅示意），对自己答案 AUC 0.88
+（模型知道什么时候错 → 选择性预测/升级触发）。base 模型反向（OpenELM-3B
+AUC 0.435）。argmax 在类别不平衡下无意义，分数/排序才是产品。详见
 [docs/jev-on-jetson.md](docs/jev-on-jetson.md)。
 
 ## 4. 引擎移植内容
@@ -129,6 +136,7 @@ ARC-Challenge 100 题（同题同序对照 3.3 生成式分数）：
 │   ├── tuning_matrix.sh      # llama.cpp 调参矩阵（线程×FA×KV 量化）
 │   ├── collect_results.py    # 结果汇总 CSV
 │   ├── jev_score.py          # LLM-as-Jev 概率直读决策评分（arXiv 2610.02076）
+│   ├── jev_verify.py         # JEV noul：二元答案验证（AUC/选择性准确率）
 │   ├── collect_jev.py        # JEV 结果汇总
 │   ├── make_plots.py         # 汇总图表
 │   ├── update_readme_tables.py

@@ -78,11 +78,51 @@ K 次并行分支。server 的 `n_probs` 路径对**全词表 logits 做 softmax
    （~35×）；分类/路由/验证/审核类任务在 Jetson 上应走评分路径，还免掉了
    输出解析的整套脆弱逻辑（本仓库 zoo 评测为此打过 4 轮解析补丁）。
 
+### noul：二元答案验证（`scripts/jev_verify.py`）
+
+论文的第二类任务：给定问题与候选答案，判 `[1] yes [2] no`，同样一次调用读
+p(yes)。验证对象直接复用 `bench_quality.py` 存下的 GSM8K 逐题答案——**目标模型
+的权重不需要在盘上**（judge 只看题面+答案），包括 125B 的 Strata 引擎输出。
+
+判读要点：目标准确率 0.8 时"全答 yes"基线就有 0.80，argmax 验证准确率无意义；
+**正确读出口是分数本身**——AUC（p(yes) 对对错的排序能力）与选择性准确率
+（按 p(yes) 取置信前 x%，边缘上即"高置信放行、低置信上报"的路由信号）。
+
+judge × target 矩阵（GSM8K 候选答案，ARC 同 seed 同题序）：
+
+| judge | target | 目标 acc | AUC | 选top50% acc | 选top75% acc |
+|---|---|---|---|---|---|
+| qwen35-4b | strata_pw3（125B 引擎） | 0.96 | **1.000**¹ | — | — |
+| qwen35-4b | qwen35-4b（自验） | 0.12 | **0.883** | 0.24 | 0.16 |
+| qwen35-4b | hunyuan-4b | 0.80 | 0.788 | **0.92** | 0.907 |
+| qwen35-4b | hunyuan-7b | 0.79 | 0.748 | 0.86 | 0.867 |
+| qwen35-4b | r1-distill-7b | 0.64 | 0.736 | 0.841 | 0.818 |
+| qwen35-4b | qwen3vl-2b-ins | 0.75 | 0.656 | 0.82 | 0.813 |
+| qwen35-2b | hunyuan-4b | 0.80 | 0.723 | 0.90 | 0.88 |
+| qwen35-2b | qwen35-2b（自验） | 0.06 | 0.713 | —² | — |
+| Qwen3-0.6B | hunyuan-4b | 0.80 | 0.568（随机） | 0.82 | 0.827 |
+| openelm-3b（base） | hunyuan-4b | 0.80 | **0.435（反向）** | 0.78 | 0.773 |
+
+¹ n=25（Strata 24 对 1 错），样本极小，仅示意；那道错题的 p(yes) 低于全部对题。
+² 目标仅 6% 正确，选择性准确率无意义。
+
+发现：
+
+1. **模型知道自己什么时候错**：qwen35-4b 对自己的 GSM8K 答案 AUC 0.88——
+   即使它自己的解析准确率只有 12%（格式下限），对错信号在概率里清晰可分。
+   边缘侧可直接用作选择性预测/升级触发器，无需第二个模型。
+2. **一个 4B judge 给全动物园当质检员**：对 5 个不同家族的 target 排序 AUC
+   0.66-0.79，按置信取舍后 top-50% 准确率普遍 +8~12 分。
+3. **base/超小模型连验证都不行**：openelm-3b AUC 0.435（反向：错题反而 p(yes)
+   更高），Qwen3-0.6B 0.568 纯随机——与 choice 任务同一边界：**chat ≥2B 才可用**。
+4. p(yes) 整体向中间压（欠自信，二值 ECE 0.17-0.49），做硬判决前应按验证集
+   重校阈值；排序用途不受影响。
+
 ### 局限
 
-- 只复现了论文的 **choice**（多选一）任务与免训练部分；noul（二元验证）、
-  score（序数打分）与 LoRA 微调（listwise 损失）未实现——前者可在 GSM8K
-  候选解验证上直接套用，后者受限于 Jetson 训练吞吐，留作后续。
+- 复现了论文的 **choice**（多选一）与 **noul**（二元验证）任务及免训练部分；
+  score（序数打分）与 LoRA 微调（listwise 损失）未实现——后者受限于 Jetson
+  训练吞吐，留作后续。
 - ARC 选项 3/4/5 混合，K≤9 的"首 token 判别"简化对 K≥10（两位数编号）不适用，
   那时需回到论文的后缀 trie 逐分支打分（每候选一次 prefill）。
 
@@ -101,10 +141,14 @@ K 次并行分支。server 的 `n_probs` 路径对**全词表 logits 做 softmax
 
 ```bash
 PY310=~/miniconda3/envs/py310/bin
+# choice: ARC-100 概率评分
 $PY310/python3 scripts/jev_score.py --model work/zoo/gguf/qwen35-4b.gguf \
     --tag qwen35-4b --compare-gen
-# 汇总所有 judge
+# noul: 用 4B judge 验证任意历史评测的 GSM8K 答案（目标权重无需在盘）
+$PY310/python3 scripts/jev_verify.py --model work/zoo/gguf/qwen35-4b.gguf \
+    --judge-tag qwen35-4b --target hunyuan-4b
+# 汇总两张表
 $PY310/python3 scripts/collect_jev.py
 ```
 
-原始分布逐题存于 `results/jev/jev_<tag>.json`。
+原始分布逐题存于 `results/jev/jev_<tag>.json` 与 `results/jev/verify_<judge>__<target>.json`。
