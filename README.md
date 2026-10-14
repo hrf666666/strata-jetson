@@ -86,6 +86,25 @@ Strata 是一个面向消费级 x86 PC 的 MoE 推理引擎：稠密部分驻留
 \* 见 [方法学·已知限制](docs/benchmark-methodology.md)：Qwen3.5 家族为格式遵循下限（ARC 正常爬坡证明能力无碍）；
 思考型模型 ARC=0 标记思考链耗尽 512 token 预算。全部为 100 题/任务（Strata 为 25/50 题抽样）。
 
+### 3.4 LLM-as-Jev：概率直读决策（零训练，复现 Microsoft arXiv 2610.02076）
+
+不走"生成→解析"，把选项编号 `[1]..[K]` 后 prefill 到 `Best answer: [`，直接从
+next-token 概率读出**校准的选项分布**（每题 1 次调用，top-k 全词表 softmax）。
+ARC-Challenge 100 题（同题同序对照 3.3 生成式分数）：
+
+| judge | 参数量 | JEV acc | 生成式 | Δ | ECE |
+|---|---|---|---|---|---|
+| Qwen3.5-4B | 4B | **0.93** | 0.79 | +0.14 | 0.048 |
+| Qwen3.5-2B | 2B | **0.77** | 0.63 | +0.14 | 0.085 |
+| Qwen3.5-0.8B | 0.8B | **0.61** | 0.56 | +0.05 | 0.129 |
+| Qwen3-0.6B（论文基座） | 0.6B | 0.62 | — | — | 0.294 |
+| OpenELM-3B / 1.1B / 270M（base） | 0.3-3B | ≈随机 | ≈随机 | ≈0 | 0.66-0.71 |
+
+结论：≥2B 对话模型"已经是 Jev"——评分全面胜过生成解析且天然校准（4B ECE 0.048），
+生成答对时 97.5% 一致、另净救回 15 题；**<1B/base 模型不能直接当 judge**（论文微调
+动机在边缘侧的实证）。100 题评分 3-29 s vs 生成式 10-17 min（~35×）。详见
+[docs/jev-on-jetson.md](docs/jev-on-jetson.md)。
+
 ## 4. 引擎移植内容
 
 | 补丁 | 内容 |
@@ -109,6 +128,8 @@ Strata 是一个面向消费级 x86 PC 的 MoE 推理引擎：稠密部分驻留
 │   ├── run_zoo.py            # 模型动物园批量 runner（取权重→bench→eval→清理）
 │   ├── tuning_matrix.sh      # llama.cpp 调参矩阵（线程×FA×KV 量化）
 │   ├── collect_results.py    # 结果汇总 CSV
+│   ├── jev_score.py          # LLM-as-Jev 概率直读决策评分（arXiv 2610.02076）
+│   ├── collect_jev.py        # JEV 结果汇总
 │   ├── make_plots.py         # 汇总图表
 │   ├── update_readme_tables.py
 │   ├── edge_deploy.sh        # 最小边缘部署组装
@@ -118,7 +139,8 @@ Strata 是一个面向消费级 x86 PC 的 MoE 推理引擎：稠密部分驻留
 │   ├── benchmark-methodology.md    # 评测方法学与已知限制
 │   ├── edge-slimming.md            # 边缘瘦身量化分析
 │   ├── rk3588-path.md              # RK3588（NPU+CPU）移植路线
-│   └── unused-parts-analysis.md    # 推理时未启用部件清单
+│   ├── unused-parts-analysis.md    # 推理时未启用部件清单
+│   └── jev-on-jetson.md            # LLM-as-Jev 概率直读决策（复现+实证）
 ├── results/
 │   ├── summary_perf.csv / summary_quality.csv
 │   ├── plots/                      # 汇总图表
@@ -147,6 +169,10 @@ python3 setup.py --family qwen --model Q2_0 \
 python scripts/power_sampler.py --out results/raw/power.csv &
 python scripts/bench_perf.py   --base-url http://127.0.0.1:8080/v1 --buckets 128,2048
 python scripts/bench_quality.py --base-url http://127.0.0.1:8080/v1 --n 100
+
+# 5) LLM-as-Jev 概率直读决策（任一 GGUF，见 docs/jev-on-jetson.md）
+python scripts/jev_score.py --model work/zoo/gguf/qwen35-4b.gguf \
+  --tag qwen35-4b --compare-gen && python scripts/collect_jev.py
 ```
 
 ## 7. 方法学与已知限制
