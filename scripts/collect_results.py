@@ -7,7 +7,7 @@ Outputs:
 Prints a combined markdown table (perf from llama-bench JSON, quality, and the
 Strata row merged from the Strata-specific results).
 """
-import csv, glob, json, os, sys
+import csv, glob, json, os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

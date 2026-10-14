@@ -52,8 +52,7 @@ def main():
         lines.append(f"| {m} | {pb} | {fmt_acc(r['gsm8k'], r['n_gsm'])} | "
                      f"{fmt_acc(r['arc'], r['n_arc'])} | {tgs} |")
 
-    s = fl("0.96")
-    lines.append(f"| **strata Q2_0 (125B MoE, 2-bit 专家)** | ~125 | **0.96 (25)** | 0.50 (50) | **6.3** |")
+    lines.append("| **strata Q2_0 (125B MoE, 2-bit 专家)** | ~125 | **0.96 (25)** | 0.50 (50) | **6.3** |")
 
     md = ROOT / "README.md"
     text = md.read_text()

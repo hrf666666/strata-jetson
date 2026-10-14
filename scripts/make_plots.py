@@ -6,7 +6,7 @@ Outputs results/plots/*.png:
   zoo_pareto.png             GSM8K accuracy vs decode t/s (quality-speed Pareto)
   strata_edge_desktop.png    Strata Q2_0: this Jetson vs the paper's desktop numbers
 """
-import csv, json
+import csv
 from pathlib import Path
 
 import matplotlib

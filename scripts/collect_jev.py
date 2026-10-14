@@ -66,20 +66,20 @@ def main():
             "seconds": s["seconds"], "n": s["n"],
         })
     if not rows:
-        raise SystemExit("no results/jev/jev_*.json found")
+        print("no results/jev/jev_*.json found")
+    else:
+        with open(f"{ROOT}/results/jev/summary_jev.csv", "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            w.writeheader()
+            w.writerows(rows)
 
-    with open(f"{ROOT}/results/jev/summary_jev.csv", "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(rows)
-
-    cols = ["model", "n_params_b", "jev_acc", "gen_acc", "delta", "ece",
-            "brier", "agreement", "seconds"]
-    print("| " + " | ".join(cols) + " |")
-    print("|" + "---|" * len(cols))
-    for r in rows:
-        print("| " + " | ".join(str(r[c]) for c in cols) + " |")
-    print(f"\n-> {ROOT}/results/jev/summary_jev.csv")
+        cols = ["model", "n_params_b", "jev_acc", "gen_acc", "delta", "ece",
+                "brier", "agreement", "seconds"]
+        print("| " + " | ".join(cols) + " |")
+        print("|" + "---|" * len(cols))
+        for r in rows:
+            print("| " + " | ".join(str(r[c]) for c in cols) + " |")
+        print(f"\n-> {ROOT}/results/jev/summary_jev.csv")
     collect_verify()
 
 

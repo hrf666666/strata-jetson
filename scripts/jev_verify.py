@@ -26,14 +26,12 @@ import json
 import math
 import os
 import random
-import re
 import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from jev_score import (ece_bins, http_json, jev_distribution, render_prompt,
-                       wait_health)
+from jev_score import ece_bins, jev_distribution, render_prompt, wait_health
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -47,8 +45,11 @@ def load_gsm8k(data_dir, n, seed):
 
 
 def load_target(target):
-    """Latest quality_<target>*.json (timestamped or not)."""
-    hits = sorted(glob.glob(f"{ROOT}/results/raw/quality_{target}*.json"))
+    """Latest quality_<target>_*.json (timestamped) or quality_<target>.json."""
+    hits = sorted(glob.glob(f"{ROOT}/results/raw/quality_{target}_*.json"))
+    exact = f"{ROOT}/results/raw/quality_{target}.json"
+    if os.path.exists(exact):
+        hits.append(exact)
     if not hits:
         raise SystemExit(f"no quality file for target '{target}'")
     with open(hits[-1]) as f:
@@ -72,16 +73,15 @@ def auc_score(pairs):
     if not pos or not neg:
         return None
     ranked = sorted(pairs, key=lambda t: t[0])
-    n, i, rank_sum_pos, idx = len(ranked), 0, 0.0, 0
+    n, i, rank_sum_pos = len(ranked), 0, 0.0
     while i < n:
         j = i
         while j < n and ranked[j][0] == ranked[i][0]:
             j += 1
         avg_rank = (i + j + 1) / 2.0  # 1-based average rank of the tie block
-        for s, y in ranked[i:j]:
+        for _, y in ranked[i:j]:
             if y:
                 rank_sum_pos += avg_rank
-        idx += 1
         i = j
     n_pos, n_neg = len(pos), len(neg)
     return (rank_sum_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
@@ -109,7 +109,7 @@ def main():
     gsm = tgt.get("gsm8k") or []
     meta = tgt.get("meta", {})
     n, seed = len(gsm), meta.get("seed", 42)
-    questions = load_gsm8k(args.data, 100, seed)[:n]  # same shuffle; targets may slice
+    questions = load_gsm8k(args.data, n, seed)  # same shuffle; targets may slice
 
     proc = None
     if args.model != "server":

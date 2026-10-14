@@ -15,7 +15,7 @@ Usage:
   run_zoo.py eval  <name>          # llama-server + GSM8K-100 + ARC-100
   run_zoo.py all  <name> [--keep]  # fetch + bench + eval (+ keep weights)
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, subprocess, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -110,7 +110,7 @@ def find_gguf(repo_list, want="Q4_K_M"):
     q4 = [f for f in cands if "q4_k_m" in f.lower()]
     q4s = [f for f in cands if "q4_k_s" in f.lower()]
     q8 = [f for f in cands if "q8_0" in f.lower()]
-    pick = (q4 or q4s or q8 or [c for c in cands if "IQ4" in f]) if want == "Q4_K_M" else cands
+    pick = (q4 or q4s or q8 or [c for c in cands if "IQ4" in c]) if want == "Q4_K_M" else cands
     return pick[0] if pick else None
 
 

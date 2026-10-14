@@ -114,7 +114,7 @@ def ece_bins(records, n_bins=10):
     return ece, out
 
 
-def brier_score(records, k):
+def brier_score(records):
     # ARC mixes 3/4/5-choice questions: use each record's own k
     return sum(sum((r["probs"][str(d)] - (1.0 if r["gold"] == d else 0.0)) ** 2
                    for d in range(1, r["k"] + 1)) for r in records) / len(records)
@@ -124,8 +124,8 @@ def entropy(probs):
     return -sum(p * math.log(p) for p in probs.values() if p > 1e-12)
 
 
-def load_gen_predictions(model_tag, n):
-    """Latest bench_<tag>_*.json with a full arc list -> {i: position_pred}."""
+def load_gen_predictions(model_tag, n, seed):
+    """Latest quality_<tag>_*.json with a full arc list -> {i: position_pred}."""
     hits = sorted(glob.glob(f"{ROOT}/results/raw/quality_{model_tag}_*.json"))
     for path in reversed(hits):
         with open(path) as f:
@@ -142,7 +142,7 @@ def load_gen_predictions(model_tag, n):
         df = pd.read_parquet(f"{ROOT}/work/data/ai2_arc/ARC-Challenge/"
                              f"test-00000-of-00001.parquet")
         all_rows = df.to_dict("records")
-        random.Random(42).shuffle(all_rows)
+        random.Random(seed).shuffle(all_rows)
         out = {}
         for i, r in rows.items():
             labels = list(all_rows[i]["choices"]["label"])
@@ -220,7 +220,7 @@ def main():
         summary = {
             "tag": tag, "task": "arc", "n": len(records), "seed": args.seed,
             "acc": round(sum(r["correct"] for r in records) / len(records), 4),
-            "ece": round(ece, 4), "brier": round(brier_score(ok, ok[0]["k"]), 4) if ok else None,
+            "ece": round(ece, 4), "brier": round(brier_score(ok), 4) if ok else None,
             "mean_top1": round(sum(r["top1"] for r in ok) / len(ok), 4) if ok else None,
             "mean_entropy": round(sum(r["entropy"] for r in ok) / len(ok), 4) if ok else None,
             "mean_coverage": round(sum(r["coverage"] for r in records) / len(records), 4),
@@ -228,7 +228,7 @@ def main():
             "seconds": round(time.time() - t0, 1), "bins": bins,
         }
         if args.compare_gen:
-            gen, gen_acc = load_gen_predictions(tag, args.n)
+            gen, gen_acc = load_gen_predictions(tag, args.n, args.seed)
             if gen:
                 pairs = [(r, gen.get(r["i"])) for r in records if gen.get(r["i"]) is not None]
                 agree = sum(r["pred"] == g for r, g in pairs)
